@@ -12,10 +12,6 @@ Although the user interface based transition might work for some of the smaller 
 
 To address this concern we released dedicated tooling, which is encapsulated within this repository.
 
-# Capabilities
-## Data discovery
-You can list all projects and resources that are subjected to transfer.
-
 # Setup
 1) Create a new Google Cloud project inside your organization's account.
 2) Create a Service Account in the project.
