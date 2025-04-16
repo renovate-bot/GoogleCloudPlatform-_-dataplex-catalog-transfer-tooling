@@ -1,11 +1,11 @@
 # Copyright 2025 Google LLC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #   https://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,10 +13,24 @@
 # limitations under the License.
 
 """
-This module is responsible for handling various entities used throughout the
-application.
-It imports and utilizes classes such as EntryGroup, TagTemplate, Project,
-and Entity.
+This module defines core entities and Pydantic request models used across
+the application. It includes classes for managing entry groups, tag templates,
+projects, and generic entities, as well as request models for resource and
+policy-related operations.
 """
 
-from common.entities.entities import EntryGroup, TagTemplate, Project, Entity
+from common.entities.entities import (
+    EntryGroup,
+    TagTemplate,
+    Project,
+    Entity,
+    ManagingSystem,
+)
+from common.entities.request_models import (
+    FindResourceNamesTaskData,
+    FetchResourcesTaskData,
+    FetchProjectsTaskData,
+    FetchPoliciesTaskData,
+    ResourceData,
+    ExtendedResourceData,
+)

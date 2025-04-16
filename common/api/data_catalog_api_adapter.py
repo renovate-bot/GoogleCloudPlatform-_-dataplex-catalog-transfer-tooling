@@ -1,11 +1,11 @@
 # Copyright 2025 Google LLC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #   https://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,6 +24,7 @@ with the Data Catalog API.
 """
 from enum import StrEnum
 
+from google.api_core.exceptions import NotFound
 from google.cloud import datacatalog
 from google.cloud.datacatalog_v1.types import SearchCatalogResponse
 from google.cloud.datacatalog_v1.services.data_catalog.pagers import (
@@ -45,7 +46,7 @@ class DatacatalogApiAdapter:
         """
         Initializes the DataCatalogApiAdapter with a Data Catalog client.
         """
-        self.client = datacatalog.DataCatalogClient()
+        self._client = datacatalog.DataCatalogClient()
 
     def _search_all(
         self,
@@ -67,7 +68,7 @@ class DatacatalogApiAdapter:
             "page_token": next_page_token,
         }
 
-        return self.client.search_catalog(request=request)
+        return self._client.search_catalog(request=request)
 
     def _search_page(
         self,
@@ -161,12 +162,37 @@ class DatacatalogApiAdapter:
         """
         Retrieves an entry group by its fully qualified name.
         """
-        fqn = f"projects/{project}/locations/{location}/entryGroups/{name}"
-        return self.client.get_entry_group(request={"name": fqn})
+        fqn = EntryGroup.get_old_fqn(project, location, name)
+        return self._client.get_entry_group(request={"name": fqn})
 
     def get_tag_template(self, project: str, location: str, name: str):
         """
         Retrieves a tag template by its fully qualified name.
         """
-        fqn = f"projects/{project}/locations/{location}/tagTemplates/{name}"
-        return self.client.get_tag_template(request={"name": fqn})
+        fqn = TagTemplate.get_old_fqn(project, location, name)
+        return self._client.get_tag_template(request={"name": fqn})
+
+    def get_resource_policy(
+        self,
+        resource_type: str,
+        project: str,
+        location: str,
+        name: str
+    ):
+        if resource_type == TagTemplate.__name__:
+            fqn = TagTemplate.get_old_fqn(project, location, name)
+        elif resource_type == EntryGroup.__name__:
+            fqn = EntryGroup.get_old_fqn(project, location, name)
+        try:
+            response = self._client.get_iam_policy(resource=fqn)
+        except NotFound:
+            return []
+
+        return [
+            {
+                "role": binding.role,
+                "members": binding.members
+            }
+            for binding
+            in response.bindings
+        ]
