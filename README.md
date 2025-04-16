@@ -82,7 +82,7 @@ When you will set up container commands, be sure to input it separately (as at t
 ## fetch-projects-job
 1) Create Cloud Run job
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-job:latest``` image
-3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 4) In Security section select the Service Account you've created
 ## fetch-resources-job
@@ -118,7 +118,7 @@ container arguments
 3) Service name ```fetch-projects-handler``` (Cloud tasks will target this name)
 4) location ```us-central1```
 5) Authentication - Require authentication
-6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 7) In Security section select the Service Account you've created
 ## fetch-resources-handler
@@ -127,7 +127,7 @@ container arguments
 3) Service name ```fetch-resources-handler``` (Cloud tasks will target this name)
 4) location ```us-central1```
 5) Authentication - Require authentication
-6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 7) In Security section select the Service Account you've created
 ## find-resource-names-handler
