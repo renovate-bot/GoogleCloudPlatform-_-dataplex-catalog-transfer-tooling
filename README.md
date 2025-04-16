@@ -23,6 +23,8 @@ To address this concern we released dedicated tooling, which is encapsulated wit
    * roles/cloudtasks.enqueuer
    * roles/datacatalog.searchAdmin
    * roles/serviceusage.serviceUsageConsumer
+   * roles/run.invoker
+   * roles/bigquery.jobUser
 4) Enable API:
    * Cloud Resource Manager API
    * BigQuery API
@@ -30,11 +32,12 @@ To address this concern we released dedicated tooling, which is encapsulated wit
    * Cloud Run Admin API
    * Cloud Data Catalog API
    * Artifact Registry API
+   * Cloud Asset API
 5) Create a Docker repository in Google Artifact Registry
 # Build
 1) Clone the github repository
     ```
-    git clone https://github.com/epam/dataplex_migrator.git
+    git clone https://github.com/GoogleCloudPlatform/dataplex-catalog-transfer-tooling.git
     ```
 2) Build 4 docker images
     ```
