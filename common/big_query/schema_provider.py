@@ -1,11 +1,11 @@
 # Copyright 2025 Google LLC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #   https://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,9 +22,19 @@ Classes:
   for BigQuery tables.
 """
 
+from enum import StrEnum
 from typing import Dict, Any
 from google.cloud import bigquery
 from common.big_query.big_query_exceptions import BigQuerySchemaNotFoundError
+
+
+class TableNames(StrEnum):
+    TAG_TEMPLATES = "tag_templates_table"
+    ENTRY_GROUPS = "entry_groups_table"
+    PROJECTS = "projects"
+    IAM_POLICIES = "iam_policies"
+    TAG_TEMPLATES_RESOURCE_MAPPING = "tag_templates_resource_mapping"
+    ENTRY_GROUPS_RESOURCE_MAPPING = "entry_groups_resource_mapping"
 
 
 class SchemaProvider:
@@ -39,7 +49,7 @@ class SchemaProvider:
         for specific tables.
         """
         self.tables = {
-            "tag_templates": {
+            TableNames.TAG_TEMPLATES: {
                 "schema": [
                     bigquery.SchemaField(
                         name="resourceName",
@@ -86,7 +96,29 @@ class SchemaProvider:
                 "partition_column": "createdAt",
                 "require_partition_filter": True,
             },
-            "entry_groups": {
+            TableNames.TAG_TEMPLATES_RESOURCE_MAPPING: {
+                "schema": [
+                    bigquery.SchemaField(
+                        name="dataCatalogResourceName",
+                        field_type="STRING",
+                        mode="REQUIRED",
+                        description=(
+                            "Format: projects/:project/locations/"
+                            ":location/tagTemplates/:tagTemplateId"
+                        ),
+                    ),
+                    bigquery.SchemaField(
+                        name="dataplexResourceName",
+                        field_type="STRING",
+                        mode="REQUIRED",
+                        description=(
+                            "Format: projects/:project/locations/"
+                            "global/aspectTypes/:aspectTypeId"
+                        ),
+                    ),
+                ],
+            },
+            TableNames.ENTRY_GROUPS: {
                 "schema": [
                     bigquery.SchemaField(
                         name="resourceName",
@@ -130,7 +162,29 @@ class SchemaProvider:
                 "partition_column": "createdAt",
                 "require_partition_filter": True,
             },
-            "projects": {
+            TableNames.ENTRY_GROUPS_RESOURCE_MAPPING: {
+                "schema": [
+                    bigquery.SchemaField(
+                        name="dataCatalogResourceName",
+                        field_type="STRING",
+                        mode="REQUIRED",
+                        description=(
+                            "Format: projects/:project/locations/"
+                            ":location/entryGroups/:entryGroupId"
+                        ),
+                    ),
+                    bigquery.SchemaField(
+                        name="dataplexResourceName",
+                        field_type="STRING",
+                        mode="REQUIRED",
+                        description=(
+                            "Format: projects/:project/locations/"
+                            ":location/entryGroups/:entryGroupId"
+                        ),
+                    ),
+                ],
+            },
+            TableNames.PROJECTS: {
                 "schema": [
                     bigquery.SchemaField(
                         name="projectId",
@@ -176,6 +230,37 @@ class SchemaProvider:
                 "is_partitioned": True,
                 "partition_column": "createdAt",
                 "require_partition_filter": True,
+            },
+            TableNames.IAM_POLICIES: {
+                "schema": [
+                    bigquery.SchemaField(
+                        name="resourceName",
+                        field_type="STRING",
+                        mode="REQUIRED",
+                    ),
+                    bigquery.SchemaField(
+                        name="system",
+                        field_type="STRING",
+                        mode="REQUIRED",
+                    ),
+                    bigquery.SchemaField(
+                        name="bindings",
+                        field_type="RECORD",
+                        mode="REPEATED",
+                        fields=[
+                            bigquery.SchemaField(
+                                name="role",
+                                field_type="STRING",
+                                mode="REQUIRED",
+                            ),
+                            bigquery.SchemaField(
+                                name="members",
+                                field_type="STRING",
+                                mode="REPEATED",
+                            ),
+                        ],
+                    ),
+                ]
             },
         }
 

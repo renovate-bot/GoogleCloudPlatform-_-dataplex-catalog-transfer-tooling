@@ -1,11 +1,11 @@
 # Copyright 2025 Google LLC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #   https://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +26,7 @@ import datetime
 from google.api_core.exceptions import PermissionDenied
 from common.api import CloudAssetApiAdapter
 from common.big_query import BigQueryAdapter
-from common.entities import Project
+from common.entities import Project, FetchProjectsTaskData
 from common.cloud_task import CloudTaskPublisher
 from common.api.resource_manager_api_adapter import ResourceManagerApiAdapter
 
@@ -42,16 +42,24 @@ class TransferController:
         """
         Initializes the TransferController with the specified project.
         """
-        self.project = app_config["project_name"]
+        self.project_name = app_config["project_name"]
         self.location = app_config["service_location"]
         self.handler_name = app_config["handler_name"]
         self.queue = app_config["queue"]
         self._resource_manager_client = ResourceManagerApiAdapter()
-        self.organization_number = self._get_organization_number(self.project)
-        self.api_client = CloudAssetApiAdapter(self.organization_number)
-        self.big_query_client = BigQueryAdapter(app_config)
-        self.cloud_task_client = CloudTaskPublisher(
-            self.project, self.location, self.queue
+        self.organization_number = self._get_organization_number(
+            self.project_name
+        )
+        self._cloud_asset_api_client = CloudAssetApiAdapter(
+            self.organization_number
+        )
+        self._big_query_client = BigQueryAdapter(
+            self.project_name,
+            app_config["dataset_location"],
+            app_config["dataset_name"],
+        )
+        self._cloud_task_client = CloudTaskPublisher(
+            self.project_name, self.location, self.queue
         )
 
     def _get_organization_number(self, project):
@@ -61,7 +69,7 @@ class TransferController:
             )
         except PermissionDenied as e:
             raise PermissionDenied(
-                f"Not enough permissions or {self.project} doesn't exists"
+                f"Not enough permissions or {self.project_name} doesn't exists"
             ) from e
 
     def start_transfer(self):
@@ -79,27 +87,32 @@ class TransferController:
         Fetches all projects within the organization which have datacatalog
         or dataplex API enabled.
         """
-        return self.api_client.fetch_projects()
+        return self._cloud_asset_api_client.fetch_projects()
 
     def create_cloud_tasks(self, projects: list[Project]):
         """
         Create cloud tasks for further processing
         """
-        if not self.cloud_task_client.check_queue_exists():
-            self.cloud_task_client.create_queue()
+        if not self._cloud_task_client.check_queue_exists():
+            self._cloud_task_client.create_queue()
 
-        today = datetime.datetime.today().isoformat()
+        today = datetime.date.today()
 
         for project in projects:
-            payload = project.to_dict()
-            payload["created_at"] = (
+            payload_data = project.to_dict()
+            payload_data["created_at"] = (
                 today  # TODO: move "created_at to constants.py"
             )
+            payload_data.pop("ancestry")
 
-            self.cloud_task_client.create_task(
+            payload = FetchProjectsTaskData(**payload_data).model_dump(
+                mode="json"
+            )
+
+            self._cloud_task_client.create_task(
                 payload,
                 self.handler_name,
-                self.project,
+                self.project_name,
                 self.location,
             )
 
