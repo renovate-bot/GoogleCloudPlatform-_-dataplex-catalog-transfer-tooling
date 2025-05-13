@@ -1,11 +1,11 @@
 # Copyright 2025 Google LLC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #   https://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,13 +23,14 @@ Classes:
   Data Catalog API.
 """
 
-from common.utils import get_logger
+
+from functools import cache
 from google.cloud import resourcemanager
-from common.exceptions import FormatException
-from common.entities import Project
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
-from functools import cache
+from common.utils import get_logger
+from common.exceptions import FormatException
+from common.entities import Project
 
 
 class ResourceManagerApiAdapter:
@@ -41,17 +42,17 @@ class ResourceManagerApiAdapter:
         """
         Initializes the ResourceManagerApiAdapter with a ResourceManager client.
         """
-        self.project_client = resourcemanager.ProjectsClient()
-        self.api_client = discovery.build("cloudresourcemanager", "v1")
+        self._project_client = resourcemanager.ProjectsClient()
+        self._plain_api_client = discovery.build("cloudresourcemanager", "v1")
         self._logger = get_logger()
 
     @cache
     def get_project_number(self, project_id: str) -> str:
-        project = self.project_client.get_project(
+        project = self._project_client.get_project(
             name=f"projects/{project_id}"
         )
 
-        return self.project_client.parse_common_project_path(
+        return self._project_client.parse_common_project_path(
             project.name
         )["project"]
 
@@ -68,7 +69,7 @@ class ResourceManagerApiAdapter:
     ) -> list[tuple[Project.AncestryType, str]]:
         try:
             response = (
-                self.api_client.projects()
+                self._plain_api_client.projects()
                 .getAncestry(projectId=project_id)
                 .execute()
             )
@@ -80,14 +81,14 @@ class ResourceManagerApiAdapter:
                     e.resp,
                     error_msg.encode("utf-8"),
                     uri=e.uri
-                )
+                ) from e
             elif e.status_code == 400:
                 error_msg = f"Incorrect project name: {project_id}"
                 raise HttpError(
                     e.resp,
                     error_msg.encode("utf-8"),
                     uri=e.uri
-                )
+                ) from e
 
             raise e
 
