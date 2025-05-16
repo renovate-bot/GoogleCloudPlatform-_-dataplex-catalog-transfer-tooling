@@ -22,7 +22,9 @@ from datetime import date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from google.api_core.exceptions import GoogleAPICallError
+from google.cloud.tasks_v2 import Task
 
+from common.api import QuotaInfoAdapter, Services, Quotas
 from common.big_query import BigQueryAdapter
 from common.cloud_task import CloudTaskPublisher
 from common.entities import EntryGroup, TagTemplate, FetchPoliciesTaskData
@@ -36,7 +38,7 @@ class TransferController:
     Cloud Tasks for processing.
     """
 
-    def __init__(self, app_config: dict):
+    def __init__(self, app_config: dict) -> None:
         """
         Initializes the TransferController with the specified project.
         """
@@ -46,8 +48,11 @@ class TransferController:
         self.location = app_config["service_location"]
         self.handler_name = app_config["handler_name"]
         self.queue = app_config["queue"]
+        self.quota_consumption = app_config["quota_consumption"]
         self._resource_manager_client = ResourceManagerApiAdapter()
         self.scope = app_config["scope"]
+        self._quota_client = QuotaInfoAdapter()
+        self.default_dataplex_quota = self._get_default_dataplex_quota()
         self._big_query_client = BigQueryAdapter(
             self.project_name,
             app_config["dataset_location"],
@@ -58,36 +63,64 @@ class TransferController:
         )
         self._logger = get_logger()
 
+    def _get_default_dataplex_quota(self) -> int:
+        """
+        Retrieves the default Dataplex quota for the project.
+        """
+        return self._quota_client.get_default_quota_value(
+            self.project_name,
+            Services.DATAPLEX,
+            Quotas.DATAPLEX_IAM_POLICY_REQUESTS,
+        )
+
     def start_transfer(self) -> None:
         """
         Initiates the data transfer process by fetching resources
         from tables and creating tasks
         """
-        entry_groups, tag_templates = self.fetch_resources(
+        resources = self.fetch_resources(
             self.resource_types,
             self.managing_systems,
             self.scope,
         )
-        if entry_groups is not None:
-            self.create_cloud_tasks(entry_groups)
-        if tag_templates is not None:
-            self.create_cloud_tasks(tag_templates)
+
+        collector = []
+        resources_date = None
+
+        for resource in resources:
+            if resource:
+                collector += resource[0]
+                resources_date = resource[1]
+
+        if len(collector) > 0 and date is not None:
+            self.create_cloud_tasks((collector, resources_date))
 
     def fetch_resources(
         self,
         resource_types: list[str],
         managing_systems: list[str],
-        scope: tuple[str, int]
-    ) -> tuple[tuple[list[EntryGroup], date], tuple[list[TagTemplate], date]]:
+        scope: dict,
+    ) -> tuple[
+        tuple[list[EntryGroup], date] | None,
+        tuple[list[TagTemplate], date] | None,
+    ]:
         """
-        Fetches entry groups and tag templates from BigQuery tables."
+        Fetches entry groups and tag templates from BigQuery tables.
         """
-        entry_groups = self._big_query_client.get_entry_groups_for_policies(
-            scope, managing_systems
-        ) if "entry_group" in resource_types else None
-        tag_templates = self._big_query_client.get_tag_templates_for_policies(
-            scope, managing_systems
-        ) if "tag_template" in resource_types else None
+        entry_groups = (
+            self._big_query_client.get_entry_groups_within_scope(
+                scope, managing_systems
+            )
+            if "entry_group" in resource_types
+            else None
+        )
+        tag_templates = (
+            self._big_query_client.get_tag_templates_within_scope(
+                scope, managing_systems
+            )
+            if "tag_template" in resource_types
+            else None
+        )
 
         return entry_groups, tag_templates
 
@@ -100,49 +133,87 @@ class TransferController:
         """
         resources, created_at = resources_date
 
-        if not self._cloud_task_client.check_queue_exists():
-            self._cloud_task_client.create_queue()
+        if any(x.managing_system == "DATA_CATALOG" for x in resources):
+            if not self._cloud_task_client.check_queue_exists():
+                self._cloud_task_client.create_queue()
+
+        locations = set(
+            map(
+                lambda x: x.location,
+                filter(lambda x: x.managing_system == "DATAPLEX", resources),
+            )
+        )
+
+        if "global" in locations:
+            locations.remove("global")
+            locations.add("us-central1")
+
+        self._cloud_task_client.prepare_queues_for_locations(
+            locations, self.default_dataplex_quota, self.quota_consumption
+        )
 
         tasks = []
-        results = []
+        error_counter = 0
 
-        for resource in resources:
-            payload_data = {
-                "resource_type": type(resource).__name__,
-                "created_at": created_at,
-                "resource": {
-                    "resource_name": resource.id,
-                    "location": resource.location,
-                    "project_id": resource.project_id,
-                    "system": resource.managing_system,
-                },
-            }
+        def process_futures(tasks: list) -> None:
+            """
+            Handle errors for a list of futures.
+            """
+            nonlocal error_counter
+            for future in as_completed(tasks):
+                try:
+                    result = future.result()
+                    if isinstance(result, Exception):
+                        raise result
+                except Exception as exc:
+                    error_counter += 1
+                    self._logger.error(exc)
 
-            payload = FetchPoliciesTaskData(**payload_data).model_dump(
-                mode="json"
-            )
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            chunk_size = 10_000
+            cur_chunk_size = 0
 
-            with ThreadPoolExecutor(max_workers=100) as executor:
-                tasks.append(executor.submit(
-                    self.create_cloud_task,
-                    payload,
-                    self.handler_name,
-                    self.project_name,
-                    self.location,
-                ))
-                for future in as_completed(tasks):
-                    try:
-                        results.append(future.result())
-                    except Exception as exc:
-                        results.append(exc)
+            for resource in resources:
+                payload = FetchPoliciesTaskData(
+                    **{
+                        "resource_type": type(resource).__name__,
+                        "created_at": created_at,
+                        "resource": {
+                            "resource_name": resource.id,
+                            "location": resource.location,
+                            "project_id": resource.project_id,
+                            "system": resource.managing_system,
+                        },
+                    }
+                ).model_dump(mode="json")
 
-        errors = list(filter(lambda t: isinstance(t, Exception), results))
+                tasks.append(
+                    executor.submit(
+                        self.create_cloud_task,
+                        payload,
+                        self.handler_name,
+                        self.project_name,
+                        self.location,
+                        resource.location,
+                    )
+                )
 
-        if len(errors) == 0:
+                cur_chunk_size += 1
+
+                if cur_chunk_size == chunk_size:
+                    cur_chunk_size = 0
+                    process_futures(tasks)
+                    tasks = []
+
+            if tasks:
+                process_futures(tasks)
+
+        if error_counter == 0:
             self._logger.info("All tasks created")
         else:
-            self._logger.info(f"{len(errors)} errors occurred"
-                              f" during tasks creation")
+            self._logger.error(
+                "%d errors occurred during tasks creation", error_counter
+            )
 
     def create_cloud_task(
         self,
@@ -150,13 +221,21 @@ class TransferController:
         handler_name: str,
         project: str,
         location: str,
-    ):
+        msg_location: str = None,
+    ) -> Task | GoogleAPICallError:
+        """
+        Creates a single Cloud Task with the given payload.
+        """
+
         try:
+            if payload["resource"]["system"] == "DATAPLEX":
+                if payload["resource_type"] == "TagTemplate":
+                    msg_location = "us-central1"
+                return self._cloud_task_client.create_task_by_message_location(
+                    payload, handler_name, msg_location, project, location
+                )
             return self._cloud_task_client.create_task(
-                payload,
-                handler_name,
-                project,
-                location
+                payload, handler_name, project, location
             )
         except GoogleAPICallError as e:
             return e

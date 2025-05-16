@@ -18,23 +18,28 @@ It is designed to handle cloud tasks related to Google Cloud Platform (GCP)
 resources, specifically for managing entry groups and tag templates in a data
 catalog.
 """
+
 import asyncio
+from typing import Any
 
 from fastapi import FastAPI, Response
 import uvicorn
 
-from common.entities import FetchPoliciesTaskData
 from config import get_application_config
 from handler import CloudTaskHandler
+from common.entities import FetchPoliciesTaskData
 
 app = FastAPI()
 
 
-config = get_application_config() #TODO: use dependencies
+config = get_application_config()  # TODO: use dependencies
 handler = CloudTaskHandler(config)
 
-@app.api_route('/', methods=['POST', 'PUT'])
-async def process_task(task_data: FetchPoliciesTaskData, response: Response):
+
+@app.api_route("/", methods=["POST", "PUT"])
+async def process_task(
+    task_data: FetchPoliciesTaskData, response: Response
+) -> dict[str, Any]:
     """
     Route to process cloud tasks.
     """
@@ -45,6 +50,7 @@ async def process_task(task_data: FetchPoliciesTaskData, response: Response):
     response.status_code = status_code
 
     return body
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)

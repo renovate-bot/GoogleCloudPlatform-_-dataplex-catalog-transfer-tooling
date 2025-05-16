@@ -27,9 +27,11 @@ Classes:
 import time
 from datetime import date
 from typing import Any
+
 from google.cloud import bigquery
 from google.api_core.exceptions import NotFound
 
+from common.exceptions import IncorrectTypeException
 from common.utils import get_logger
 from common.entities import (
     TagTemplate,
@@ -64,6 +66,8 @@ class RowTransformer:
                 return cls.from_entry_group(entity, creation_date)
             case Project():
                 return cls.from_project(entity, creation_date)
+            case _:
+                raise IncorrectTypeException(f"Unknown entity type: {entity}")
 
     @staticmethod
     def from_entry_group(
@@ -74,7 +78,6 @@ class RowTransformer:
         """
         return {
             "resourceName": entity.resource_name,
-            "dataplexResourceName": entity.dataplex_resource_name,
             "projectId": entity.project_id,
             "location": entity.location,
             "entryGroupId": entity.id,
@@ -91,7 +94,6 @@ class RowTransformer:
         """
         return {
             "resourceName": entity.resource_name,
-            "dataplexResourceName": entity.dataplex_resource_name,
             "projectId": entity.project_id,
             "location": entity.location,
             "tagTemplateId": entity.id,
@@ -129,7 +131,10 @@ class BigQueryAdapter:
         partition_column: str = "createdAt",
         retry_count: int = 5,
         retry_delay: int = 2,
-    ):
+    ) -> None:
+        """
+        Initializes the BigQueryAdapter.
+        """
         self._project = project
         self._client = bigquery.Client(self._project)
         self._dataset_location = dataset_location
@@ -196,6 +201,9 @@ class BigQueryAdapter:
         )
 
     def select_entry_groups(self) -> list[EntryGroup]:
+        """
+        Retrieves a list of entry groups from BigQuery view.
+        """
         table_ref = self._get_table_ref(ViewNames.ENTRY_GROUPS_VIEW)
         target_creation_date = self._get_target_creation_date(table_ref)
         query = f"""SELECT
@@ -223,6 +231,9 @@ class BigQueryAdapter:
         return entry_groups
 
     def select_tag_templates(self) -> list[TagTemplate]:
+        """
+        Retrieves a list of tag templates from BigQuery view.
+        """
         # TODO create simple ORM
         table_ref = self._get_table_ref(ViewNames.TAG_TEMPLATES_VIEW)
         target_creation_date = self._get_target_creation_date(table_ref)
@@ -253,8 +264,83 @@ class BigQueryAdapter:
 
         return tag_templates
 
-    def get_entry_groups_for_policies(self, scope, managing_systems: list):
+    def get_private_tag_templates(self, scope: dict) -> list["TagTemplate"]:
         """
+        Retrieves private tag templates from BigQuery based on the
+        provided scope.
+        """
+        tt_table_ref = self._get_table_ref(TableNames.TAG_TEMPLATES)
+        projects_table_ref = self._get_table_ref(TableNames.PROJECTS)
+
+        target_creation_date_for_tt = self._get_target_creation_date(
+            tt_table_ref
+        )
+        target_creation_date_for_projects = self._get_target_creation_date(
+            projects_table_ref
+        )
+
+        query = f"""
+            DECLARE scope_type STRING; 
+            SET scope_type = \"{scope["scope_type"]}\";
+
+            SELECT DISTINCT
+                resourceName
+            FROM 
+                `{tt_table_ref}` AS tag_templates
+            JOIN 
+                `{projects_table_ref}` AS projects
+            ON 
+                tag_templates.projectId = projects.projectId,
+            UNNEST(projects.ancestry) AS ancestryItem
+            WHERE 
+                tag_templates.createdAt = \"{target_creation_date_for_tt}\"
+                AND projects.createdAt = \"{target_creation_date_for_projects}\"
+                AND tag_templates.isPubliclyReadable = FALSE
+                AND (
+                    (scope_type IN ("FOLDER", "ORGANIZATION")
+                    AND ancestryItem.type = \"{scope["scope_type"]}\"
+                    AND ancestryItem.id = \"{scope["scope_id"]}\")
+                    OR (scope_type = "PROJECT" 
+                    AND projects.projectNumber = {scope["scope_id"]})
+                )
+        """
+
+        query_result = self._client.query(query).result()
+
+        if not query_result:
+            self._logger.info("Query returned no results.")
+            return []
+
+        private_tag_templates = []
+
+        for tt in query_result:
+            try:
+                parse_resource_name = TagTemplate.parse_tag_template_resource(
+                    tt.resourceName
+                )
+
+                private_tag_templates.append(
+                    TagTemplate(
+                        project_id=parse_resource_name["project_id"],
+                        location=parse_resource_name["location"],
+                        tag_template_id=parse_resource_name["tag_template_id"],
+                        public=False,
+                        transferred=False,
+                    )
+                )
+            except Exception as e:
+                self._logger.error(
+                    "Error parsing resource name for %s: %s", tt, e
+                )
+                continue
+
+        return private_tag_templates
+
+    def get_entry_groups_within_scope(
+        self, scope: dict, managing_systems: list
+    ) -> tuple[list["EntryGroup"], date]:
+        """
+
         Fetch entry groups matching scope criteria.
         """
         eg_table_ref = self._get_table_ref(ViewNames.ENTRY_GROUPS_VIEW)
@@ -267,7 +353,10 @@ class BigQueryAdapter:
             projects_table_ref
         )
         query = f"""
-            SELECT
+            DECLARE scope_type STRING; 
+            SET scope_type = \"{scope["scope_type"]}\";
+
+            SELECT DISTINCT
                 resourceName as dataCatalogResourceName,
                 dataplexResourceName,
                 managingSystem
@@ -281,46 +370,64 @@ class BigQueryAdapter:
             WHERE 
                 entry_groups.createdAt = \"{target_creation_date_for_eg}\"
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
+                AND dataplexResourceName IS NOT NULL
                 AND entry_groups.managingSystem IN 
                     ({",".join([f"\"{v}\"" for v in managing_systems])})
-                AND ancestryItem.type = \"{scope["scope_type"]}\"
-                AND ancestryItem.id = \"{scope["scope_id"]}\"
+                AND (
+                    (
+                        scope_type IN ("FOLDER", "ORGANIZATION")
+                        AND ancestryItem.type = \"{scope["scope_type"]}\"
+                        AND ancestryItem.id = \"{scope["scope_id"]}\"
+                    )
+                    OR 
+                    (
+                        scope_type = "PROJECT" 
+                        AND projects.projectNumber = {scope["scope_id"]}
+                    )
+                )
             """
 
         query_result = self._client.query(query).result()
 
+        if not query_result:
+            self._logger.info("Query returned no results.")
+            return [], target_creation_date_for_eg
+
         entry_groups = []
 
         for eg in query_result:
+            try:
+                match eg.managingSystem:
+                    case ManagingSystem.DATA_CATALOG:
+                        resource_name = eg.dataCatalogResourceName
+                    case ManagingSystem.DATAPLEX:
+                        resource_name = eg.dataplexResourceName
 
-            match eg.managingSystem:
-                case ManagingSystem.DATA_CATALOG:
-                    resource_name = eg.dataCatalogResourceName
-                case ManagingSystem.DATAPLEX:
-                    resource_name = eg.dataplexResourceName
-
-            if resource_name:
                 parse_resource_name = EntryGroup.parse_entry_group_resource(
                     resource_name
                 )
-            else:
-                self._logger.info("Could not find resource name for %s", eg)
 
-            entry_groups.append(
-                EntryGroup(
-                    project_id=parse_resource_name["project_id"],
-                    location=parse_resource_name["location"],
-                    entry_group_id=parse_resource_name["entry_group_id"],
-                    transferred=(
-                        True
-                        if eg.managingSystem == ManagingSystem.DATAPLEX
-                        else False
-                    ),
+                entry_groups.append(
+                    EntryGroup(
+                        project_id=parse_resource_name["project_id"],
+                        location=parse_resource_name["location"],
+                        entry_group_id=parse_resource_name["entry_group_id"],
+                        transferred=(
+                            True
+                            if eg.managingSystem == ManagingSystem.DATAPLEX
+                            else False
+                        ),
+                    )
                 )
-            )
+            except Exception as e:
+                self._logger.error("Error processing entry group %s: %s", eg, e)
+                continue
+
         return entry_groups, target_creation_date_for_eg
 
-    def get_tag_templates_for_policies(self, scope, managing_systems):
+    def get_tag_templates_within_scope(
+        self, scope: dict, managing_systems: list
+    ) -> tuple[list["TagTemplate"], str]:
         """
         Fetch tag templates matching scope criteria.
         """
@@ -334,7 +441,10 @@ class BigQueryAdapter:
             projects_table_ref
         )
         query = f"""
-            SELECT 
+            DECLARE scope_type STRING; 
+            SET scope_type = \"{scope["scope_type"]}\";
+
+            SELECT DISTINCT
                 resourceName as dataCatalogResourceName, 
                 dataplexResourceName,
                 isPubliclyReadable,
@@ -349,44 +459,59 @@ class BigQueryAdapter:
             WHERE 
                 tag_templates.createdAt = \"{target_creation_date_for_tt}\"
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
+                AND dataplexResourceName IS NOT NULL
                 AND tag_templates.managingSystem IN 
                     ({",".join([f"\"{v}\"" for v in managing_systems])})
-                AND ancestryItem.type = \"{scope["scope_type"]}\"
-                AND ancestryItem.id = \"{scope["scope_id"]}\"
+                AND (
+                    (
+                        scope_type IN ("FOLDER", "ORGANIZATION")
+                        AND ancestryItem.type = \"{scope["scope_type"]}\"
+                        AND ancestryItem.id = \"{scope["scope_id"]}\"
+                    )
+                    OR 
+                    (
+                        scope_type = "PROJECT" 
+                        AND projects.projectNumber = {scope["scope_id"]}
+                    )
+                )
             """
 
         query_result = self._client.query(query).result()
 
+        if not query_result:
+            self._logger.info("Query returned no results.")
+            return [], target_creation_date_for_tt
+
         tag_templates = []
 
         for tt in query_result:
+            try:
+                match tt.managingSystem:
+                    case ManagingSystem.DATA_CATALOG:
+                        resource_name = tt.dataCatalogResourceName
+                    case ManagingSystem.DATAPLEX:
+                        resource_name = tt.dataplexResourceName
 
-            match tt.managingSystem:
-                case ManagingSystem.DATA_CATALOG:
-                    resource_name = tt.dataCatalogResourceName
-                case ManagingSystem.DATAPLEX:
-                    resource_name = tt.dataplexResourceName
-
-            if resource_name:
                 parse_resource_name = TagTemplate.parse_tag_template_resource(
                     resource_name
                 )
-            else:
-                self._logger.info("Could not find resource name for %s", tt)
 
-            tag_templates.append(
-                TagTemplate(
-                    project_id=parse_resource_name["project_id"],
-                    location=parse_resource_name["location"],
-                    tag_template_id=parse_resource_name["tag_template_id"],
-                    public=tt.isPubliclyReadable,
-                    transferred=(
-                        True
-                        if tt.managingSystem == ManagingSystem.DATAPLEX
-                        else False
-                    ),
+                tag_templates.append(
+                    TagTemplate(
+                        project_id=parse_resource_name["project_id"],
+                        location=parse_resource_name["location"],
+                        tag_template_id=parse_resource_name["tag_template_id"],
+                        public=tt.isPubliclyReadable,
+                        transferred=(
+                            True
+                            if tt.managingSystem == ManagingSystem.DATAPLEX
+                            else False
+                        ),
+                    )
                 )
-            )
+            except Exception as e:
+                self._logger.error("Error processing entry group %s: %s", tt, e)
+                continue
 
         return tag_templates, target_creation_date_for_tt
 
@@ -409,9 +534,15 @@ class BigQueryAdapter:
         return project_ids
 
     def _get_dataset_ref(self) -> bigquery.DatasetReference:
+        """
+        Retrieves a reference to the BigQuery dataset.
+        """
         return bigquery.DatasetReference(self._project, self._dataset_name)
 
-    def _get_table_ref(self, table_name: str):
+    def _get_table_ref(self, table_name: str) -> str:
+        """
+        Constructs a fully qualified table reference string.
+        """
         return f"{self._project}.{self._dataset_name}.{table_name}"
 
     def _ensure_dataset_exists(self) -> bigquery.Dataset:
@@ -550,6 +681,9 @@ class BigQueryAdapter:
         ]
         return last_partition
 
-    def delete_dataset(self):
+    def delete_dataset(self) -> None:
+        """
+        Deletes the BigQuery dataset associated with adapter.
+        """
         dataset_ref = self._get_dataset_ref()
         self._client.delete_dataset(dataset_ref, True)

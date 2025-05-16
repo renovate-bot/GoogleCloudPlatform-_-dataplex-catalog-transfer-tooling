@@ -16,9 +16,10 @@
 Defines entities and Pydantic models for resource and policy management.
 """
 
-from pydantic import BaseModel, field_validator, model_validator
-from typing import Optional, Literal
 from datetime import date
+from typing import Optional, Literal
+
+from pydantic import BaseModel, model_validator
 
 
 class ResourceData(BaseModel):
@@ -39,7 +40,7 @@ class ExtendedResourceData(ResourceData):
     system: Literal["DATA_CATALOG", "DATAPLEX"]
 
 
-class FindResourceNamesTaskData(BaseModel):
+class ResourceTaskData(BaseModel):
     """
     Model for finding resource names by type and creation date.
     """
@@ -62,7 +63,13 @@ class FetchResourcesTaskData(BaseModel):
 
     @model_validator(mode="after")
     @classmethod
-    def validate_is_public(cls, values):
+    def validate_is_public(
+        cls, values: "FetchResourcesTaskData"
+    ) -> "FetchResourcesTaskData":
+        """
+        Validates that 'is_public' is provided when the resource
+        type is 'tag_template'.
+        """
         if values.resource_type == "tag_template" and values.is_public is None:
             raise ValueError(
                 "'is_public' is required when 'resource_type' is 'tag_template'"
@@ -76,19 +83,10 @@ class FetchProjectsTaskData(BaseModel):
     """
 
     project_id: str
-    project_number: str
+    project_number: int
     data_catalog_api_enabled: bool = False
     dataplex_api_enabled: bool = False
     created_at: date
-
-    @field_validator("project_number")
-    @classmethod
-    def validate_project_number(cls, value):
-        if not value.isdigit():
-            raise ValueError(
-                "Invalid 'project_number'. Expected a numeric string."
-            )
-        return value
 
 
 class FetchPoliciesTaskData(BaseModel):
@@ -99,3 +97,9 @@ class FetchPoliciesTaskData(BaseModel):
     resource_type: Literal["EntryGroup", "TagTemplate"]
     created_at: date
     resource: ExtendedResourceData
+
+
+class ConvertPrivateTagTemplatesTaskData(ResourceData):
+    """
+    Model for fetching policies by resource type and creation date.
+    """

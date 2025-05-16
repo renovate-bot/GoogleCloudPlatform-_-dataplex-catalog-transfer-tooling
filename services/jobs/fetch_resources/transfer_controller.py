@@ -38,7 +38,7 @@ class TransferController:
     templates, and entry groups, and writes them to BigQuery tables.
     """
 
-    def __init__(self, app_config: dict):
+    def __init__(self, app_config: dict) -> None:
         """
         Initializes the TransferController with the specified project.
         """
@@ -55,7 +55,7 @@ class TransferController:
             self.project, self.location, self.queue_name
         )
 
-    def start_transfer(self):
+    def start_transfer(self) -> None:
         """
         Initiates the data transfer process by fetching projects and resources,
         and writing them to BigQuery tables.
@@ -69,7 +69,7 @@ class TransferController:
         """
         return list(set(self.big_query_client.get_projects_to_fetch()))
 
-    def create_cloud_tasks(self, projects: list[str]):
+    def create_cloud_tasks(self, projects: list[str]) -> None:
         """
         Create initial cloud tasks for cloud task handler
         """

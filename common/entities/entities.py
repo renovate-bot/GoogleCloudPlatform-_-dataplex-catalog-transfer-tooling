@@ -33,6 +33,10 @@ from common.exceptions import IncorrectTypeException, FormatException
 
 
 class ManagingSystem(StrEnum):
+    """
+    Enum representing the managing system for resources.
+    """
+
     DATA_CATALOG = "DATA_CATALOG"
     DATAPLEX = "DATAPLEX"
 
@@ -57,7 +61,7 @@ class TagTemplate:
         tag_template_id: str,
         public: bool,
         transferred: bool,
-    ):
+    ) -> None:
         """
         Initializes a TagTemplate instance.
         """
@@ -77,6 +81,9 @@ class TagTemplate:
 
     @staticmethod
     def get_old_fqn(project_id: str, location: str, name: str) -> str:
+        """
+        Constructs the old fully qualified name for a tag template.
+        """
         return (
             f"projects/{project_id}/"
             f"locations/{location}/"
@@ -85,10 +92,16 @@ class TagTemplate:
 
     @staticmethod
     def get_new_fqn(project_id: str, _: str, name: str) -> str:
+        """
+        Constructs a fully qualified name for an aspect type.
+        """
         return f"projects/{project_id}/locations/global/aspectTypes/{name}"
 
     @staticmethod
-    def parse_tag_template_resource(resource_name: str):
+    def parse_tag_template_resource(resource_name: str) -> dict[str, str]:
+        """
+        Parses a tag template resource name into its components.
+        """
         pattern = (
             r"projects/(?P<project_id>[^/]+)/"
             r"locations/(?P<location>[^/]+)/"
@@ -127,7 +140,7 @@ class TagTemplate:
             transferred=transferred,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Returns a string representation of the TagTemplate instance.
         """
@@ -152,7 +165,7 @@ class EntryGroup:
         location: str,
         entry_group_id: str,
         transferred: bool,
-    ):
+    ) -> None:
         """
         Initializes an EntryGroup instance.
         """
@@ -171,6 +184,9 @@ class EntryGroup:
 
     @staticmethod
     def get_old_fqn(project_id: str, location: str, name: str) -> str:
+        """
+        Constructs the old fully qualified name for an entry group.
+        """
         return (
             f"projects/{project_id}/"
             f"locations/{location}/"
@@ -179,6 +195,9 @@ class EntryGroup:
 
     @staticmethod
     def get_new_fqn(project_id: str, location: str, name: str) -> str:
+        """
+        Constructs the new fully qualified name for an entry group.
+        """
         return (
             f"projects/{project_id}/"
             f"locations/{location}/"
@@ -186,7 +205,10 @@ class EntryGroup:
         )
 
     @staticmethod
-    def parse_entry_group_resource(resource_name: str):
+    def parse_entry_group_resource(resource_name: str) -> dict[str, str]:
+        """
+        Parses an entry group resource name into its components.
+        """
         pattern = (
             r"projects/(?P<project_id>[^/]+)/"
             r"locations/(?P<location>[^/]+)/"
@@ -224,7 +246,7 @@ class EntryGroup:
             transferred=transferred,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Returns a string representation of the EntryGroup instance.
         """
@@ -237,6 +259,10 @@ class Project:
     """
 
     class AncestryType(StrEnum):
+        """
+        Enum representing the ancestry type for a project.
+        """
+
         ORGANIZATION = "ORGANIZATION"
         FOLDER = "FOLDER"
 
@@ -246,7 +272,10 @@ class Project:
     dataplex_api_enabled: bool
     ancestry: list[tuple[AncestryType, str]]
 
-    def __init__(self, project_id: str, project_number: int):
+    def __init__(self, project_id: str, project_number: int) -> None:
+        """
+        Initializes a Project instance.
+        """
         self.project_id = project_id
         self.project_number = project_number
         self.data_catalog_api_enabled = False
@@ -254,12 +283,23 @@ class Project:
         self.ancestry = []
 
     def set_ancestry(self, ancestry: list[tuple[AncestryType, str]]) -> None:
+        """
+        Sets the ancestry of the project.
+        """
         self.ancestry = ancestry
 
-    def set_data_catalog_api_enabled(self, data_catalog_api_enabled: bool):
+    def set_data_catalog_api_enabled(
+        self, data_catalog_api_enabled: bool
+    ) -> None:
+        """
+        Sets the value of the Data Catalog API enabled.
+        """
         self.data_catalog_api_enabled = data_catalog_api_enabled
 
-    def set_dataplex_api_enabled(self, dataplex_api_enabled: bool):
+    def set_dataplex_api_enabled(self, dataplex_api_enabled: bool) -> None:
+        """
+        Sets the value of the Dataplex API enabled.
+        """
         self.dataplex_api_enabled = dataplex_api_enabled
 
     @staticmethod
@@ -295,6 +335,9 @@ class Project:
         return project
 
     def to_dict(self) -> dict:
+        """
+        Converts the Project instance to a dictionary representation.
+        """
         return {
             "project_id": self.project_id,
             "project_number": self.project_number,
@@ -303,7 +346,10 @@ class Project:
             "ancestry": self.ancestry,
         }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Returns a string representation of the Project instance.
+        """
         return f"{self.project_id}, number: {self.project_number}"
 
 

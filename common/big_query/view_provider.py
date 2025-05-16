@@ -19,12 +19,18 @@ such as `entry_groups_view` and `tag_templates_view`.
 """
 
 from enum import StrEnum
+
 from google.cloud import bigquery
+
 from common.big_query.big_query_exceptions import BigQueryViewSQLNotFoundError
 from common.big_query.big_query_adapter import TableNames
 
 
 class ViewNames(StrEnum):
+    """
+    Predefined view names used in the ViewProvider.
+    """
+
     TAG_TEMPLATES_VIEW = "tag_templates"
     ENTRY_GROUPS_VIEW = "entry_groups"
 
@@ -34,6 +40,7 @@ class ViewSQLStatements:
     Class for managing SQL templates and generating SQL statements for
     BigQuery views.
     """
+
     ENTRY_GROUPS_VIEW_SQL = """
         CREATE VIEW `{project_id}.{dataset_id}.{view_name}` AS
         SELECT
@@ -77,7 +84,7 @@ class ViewSQLStatements:
         Generates the SQL statement for the specified view reference.
         """
         if view_ref.table_id == ViewNames.ENTRY_GROUPS_VIEW:
-            sql_template =  cls.ENTRY_GROUPS_VIEW_SQL
+            sql_template = cls.ENTRY_GROUPS_VIEW_SQL
             entity_table = TableNames.ENTRY_GROUPS
             entity_mapping_table = TableNames.ENTRY_GROUPS_RESOURCE_MAPPING
         elif view_ref.table_id == ViewNames.TAG_TEMPLATES_VIEW:
@@ -94,5 +101,5 @@ class ViewSQLStatements:
             dataset_id=view_ref.dataset_id,
             view_name=view_ref.table_id,
             entity_table=entity_table,
-            entity_mapping_table=entity_mapping_table
+            entity_mapping_table=entity_mapping_table,
         )

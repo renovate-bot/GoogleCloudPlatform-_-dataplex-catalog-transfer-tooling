@@ -18,8 +18,10 @@ Fetch Resources job tests
 
 import json
 import random
-import pytest
 import datetime
+from typing import Generator
+
+import pytest
 
 from services.jobs.fetch_resources.transfer_controller import TransferController
 from common.cloud_task import CloudTaskPublisher
@@ -33,21 +35,7 @@ class TestFetchResources:
     """
 
     @pytest.fixture(scope="class")
-    def basic_config(self):
-        """
-        Provides a basic configuration dictionary for the test environment.
-        """
-        return {
-            "project_name": "hl2-gogl-dapx-t1iylu",
-            "service_location": "us-west1",
-            "handler_name": "test-fetch-resources-handler",
-            "queue": "test-resource-discovery",
-            "dataset_location": "US",
-            "dataset_name": "test_fetch_resources_job",
-        }
-
-    @pytest.fixture(scope="class")
-    def full_config(self, basic_config):
+    def full_config(self, basic_config: dict) -> dict:
         """
         Extends the basic configuration with a unique queue name by
         appending a random suffix.
@@ -59,7 +47,7 @@ class TestFetchResources:
         return basic_config
 
     @pytest.fixture(scope="class", autouse=True)
-    def big_query_client(self, full_config):
+    def big_query_client(self, full_config: dict) -> Generator:
         """
         Sets up a BigQuery client for the test environment and ensures
         cleanup after tests.
@@ -73,7 +61,7 @@ class TestFetchResources:
         big_query_client.delete_dataset()
 
     @pytest.fixture(scope="class")
-    def setup_bigquery_table(self, big_query_client):
+    def setup_bigquery_table(self, big_query_client: BigQueryAdapter) -> None:
         """
         Sets up a BigQuery table with test data for the `projects` table.
         """
@@ -87,7 +75,7 @@ class TestFetchResources:
         big_query_client.write_entities_to_table(table_id, entities)
 
     @pytest.fixture()
-    def cloud_task_client(self, full_config):
+    def cloud_task_client(self, full_config: dict) -> Generator:
         """
         Sets up a Cloud Task client for the test environment and ensures
         cleanup after tests.
@@ -133,8 +121,12 @@ class TestFetchResources:
     @pytest.mark.usefixtures("setup_bigquery_table")
     @pytest.mark.parametrize("project_list", [["project1", "project2"]])
     def test_fetch_resources(
-        self, full_config, big_query_client, cloud_task_client, project_list
-    ):
+        self,
+        full_config: dict,
+        big_query_client: BigQueryAdapter,
+        cloud_task_client: CloudTaskPublisher,
+        project_list: list,
+    ) -> None:
         """
         Tests the Fetch Resources functionality by verifying the transfer of
         resource data from BigQuery to Cloud Tasks."

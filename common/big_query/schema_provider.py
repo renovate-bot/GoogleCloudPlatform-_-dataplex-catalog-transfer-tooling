@@ -23,12 +23,18 @@ Classes:
 """
 
 from enum import StrEnum
-from typing import Dict, Any
+from typing import Any
+
 from google.cloud import bigquery
+
 from common.big_query.big_query_exceptions import BigQuerySchemaNotFoundError
 
 
 class TableNames(StrEnum):
+    """
+    Predefined table names used in the SchemaProvider.
+    """
+
     TAG_TEMPLATES = "tag_templates_table"
     ENTRY_GROUPS = "entry_groups_table"
     PROJECTS = "projects"
@@ -43,7 +49,7 @@ class SchemaProvider:
     for BigQuery tables.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the SchemaProvider with predefined schemas
         for specific tables.
@@ -58,14 +64,6 @@ class SchemaProvider:
                         description=(
                             "Format: projects/:project/locations/"
                             ":location/tagTemplates/:tagTemplateId"
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        name="dataplexResourceName",
-                        field_type="STRING",
-                        description=(
-                            "Format: projects/:project/locations/"
-                            "global/aspectTypes/:aspectTypeId"
                         ),
                     ),
                     bigquery.SchemaField(
@@ -124,14 +122,6 @@ class SchemaProvider:
                         name="resourceName",
                         field_type="STRING",
                         mode="REQUIRED",
-                        description=(
-                            "Format: projects/:project/locations/"
-                            ":location/entryGroups/:entryGroupId"
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        name="dataplexResourceName",
-                        field_type="STRING",
                         description=(
                             "Format: projects/:project/locations/"
                             ":location/entryGroups/:entryGroupId"
@@ -264,7 +254,7 @@ class SchemaProvider:
             },
         }
 
-    def get_table_metadata(self, table_name: str) -> Dict[str, Any]:
+    def get_table_metadata(self, table_name: TableNames) -> dict[str, Any]:
         """
         Retrieves the metadata for a specified table.
         """

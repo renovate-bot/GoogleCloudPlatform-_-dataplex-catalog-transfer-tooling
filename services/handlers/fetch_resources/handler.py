@@ -32,7 +32,7 @@ class CloudTaskHandler:
     groups and tag templates.
     """
 
-    def __init__(self, app_config):
+    def __init__(self, app_config: dict) -> None:
         """
         Initializes the CloudTaskHandler with configuration for the GCP project
         and other settings.
@@ -52,7 +52,9 @@ class CloudTaskHandler:
             self.project_name, self.service_location, self.queue
         )
 
-    def handle_cloud_task(self, task_data: FetchResourcesTaskData):
+    def handle_cloud_task(
+        self, task_data: FetchResourcesTaskData
+    ) -> tuple[dict[str, str], int]:
         """
         Processes the task data, interacts with the Datacatalog API, and writes
         results to BigQuery.
@@ -78,7 +80,7 @@ class CloudTaskHandler:
                 )
                 table_name = TableNames.TAG_TEMPLATES
             case _:
-                api_result, next_page_token = (None, None)
+                api_result, next_page_token, table_name = None, None, None
 
         if api_result:
             self._big_query_client.write_entities_to_table(

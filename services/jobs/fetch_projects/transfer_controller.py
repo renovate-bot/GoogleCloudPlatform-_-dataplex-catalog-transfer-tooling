@@ -23,7 +23,9 @@ Classes:
 """
 
 import datetime
+
 from google.api_core.exceptions import PermissionDenied
+
 from common.api import CloudAssetApiAdapter
 from common.big_query import BigQueryAdapter
 from common.entities import Project, FetchProjectsTaskData
@@ -38,7 +40,7 @@ class TransferController:
     templates, and entry groups, and writes them to BigQuery tables.
     """
 
-    def __init__(self, app_config: dict):
+    def __init__(self, app_config: dict) -> None:
         """
         Initializes the TransferController with the specified project.
         """
@@ -62,7 +64,10 @@ class TransferController:
             self.project_name, self.location, self.queue
         )
 
-    def _get_organization_number(self, project):
+    def _get_organization_number(self, project: str) -> str:
+        """
+        Retrieves the organization number for the given project.
+        """
         try:
             return self._resource_manager_client.get_organization_number(
                 project
@@ -72,7 +77,7 @@ class TransferController:
                 f"Not enough permissions or {self.project_name} doesn't exists"
             ) from e
 
-    def start_transfer(self):
+    def start_transfer(self) -> None:
         """
         Initiates the data transfer process by fetching projects and resources,
         and writing them to BigQuery tables.
@@ -89,7 +94,7 @@ class TransferController:
         """
         return self._cloud_asset_api_client.fetch_projects()
 
-    def create_cloud_tasks(self, projects: list[Project]):
+    def create_cloud_tasks(self, projects: list[Project]) -> None:
         """
         Create cloud tasks for further processing
         """

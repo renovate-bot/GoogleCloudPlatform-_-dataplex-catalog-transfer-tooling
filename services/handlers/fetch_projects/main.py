@@ -14,16 +14,18 @@
 
 """
 This module provides a Fastapi application that handles cloud tasks related to
-project management and data processing. It integrates with 
+project management and data processing. It integrates with
 ResourceManagerApiAdapter and BigQueryAdapter to manage project data and
 store it in BigQuery.
 """
 
+from typing import Any
 from fastapi import FastAPI, Response
 import uvicorn
-from common.entities import FetchProjectsTaskData
+
 from config import get_application_config
 from handler import CloudTaskHandler
+from common.entities import FetchProjectsTaskData
 
 
 app = FastAPI()
@@ -32,7 +34,9 @@ handler = CloudTaskHandler(config)
 
 
 @app.api_route("/", methods=["POST", "PUT"])
-async def process_task(task_data: FetchProjectsTaskData, response: Response):
+async def process_task(
+    task_data: FetchProjectsTaskData, response: Response
+) -> dict[str, Any]:
     """
     Route to process cloud tasks.
     """

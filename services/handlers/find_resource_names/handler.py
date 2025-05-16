@@ -22,16 +22,17 @@ from common.big_query import BigQueryAdapter, TableNames
 from common.entities import (
     EntryGroup,
     TagTemplate,
-    FindResourceNamesTaskData,
+    ResourceTaskData,
 )
 from common.utils import get_logger
+
 
 class CloudTaskHandler:
     """
     A handler class for processing cloud tasks related to project management.
     """
 
-    def __init__(self, app_config):
+    def __init__(self, app_config: dict) -> None:
         """
         Initializes the CloudTaskHandler with ResourceManagerApiAdapter and
         BigQueryAdapter clients.
@@ -46,7 +47,9 @@ class CloudTaskHandler:
         )
         self._logger = get_logger()
 
-    def handle_cloud_task(self, task_data: FindResourceNamesTaskData):
+    def handle_cloud_task(
+        self, task_data: ResourceTaskData
+    ) -> tuple[dict[str, str], int]:
         """
         Processes a single cloud task by extracting project information,
         fetching new name, and writing the project data to a BigQuery
@@ -84,19 +87,24 @@ class CloudTaskHandler:
                 "dataplexResourceName": dataplex_name,
             }
         else:
-            self._logger.error(f"Invalid resource type: {resource_type}")
+            self._logger.error("Invalid resource type: %s", resource_type)
             return {"message": f"Invalid resource type: {resource_type}"}, 400
 
         if dataplex_name is None:
             self._logger.error(
-                f"No dataplex resource found for {resource_name}"
+                "No dataplex resource found for %s", resource_name
             )
             return {"message": "Resource not found"}, 200
 
         self.write_to_table(table, data)
         return {"message": "Task processed"}, 200
 
-    def find_new_entry_group_name(self, project_id, resource_name, location):
+    def find_new_entry_group_name(
+        self, project_id: str, resource_name: str, location: str
+    ) -> str | None:
+        """
+        Finds the new entry group name in Dataplex.
+        """
         fqn = EntryGroup.get_new_fqn(project_id, location, resource_name)
         entry_group = self._dataplex_client.get_entry_group(fqn=fqn)
 
@@ -104,8 +112,9 @@ class CloudTaskHandler:
             return fqn
 
         self._logger.info(
-            f"Didn't find entry group named {fqn}."
-            f"Try to find with different name"
+            "Didn't find entry group named %s."
+            "Try to find with different name",
+            fqn,
         )
 
         new_name = f"{resource_name}_{location}"
@@ -115,11 +124,16 @@ class CloudTaskHandler:
         if entry_group is not None and entry_group.transfer_status is not None:
             return fqn
 
-        self._logger.info(f"No entry group named {fqn}.")
+        self._logger.info("No entry group named %s.", fqn)
 
         return None
 
-    def find_new_tag_template_name(self, project_id, resource_name, location):
+    def find_new_tag_template_name(
+        self, project_id: str, resource_name: str, location: str
+    ) -> str | None:
+        """
+        Finds the new tag template name in Dataplex.
+        """
         fqn = TagTemplate.get_new_fqn(project_id, location, resource_name)
 
         aspect_type = self._dataplex_client.get_aspect_type(fqn=fqn)
@@ -128,8 +142,9 @@ class CloudTaskHandler:
             return fqn
 
         self._logger.info(
-            f"Didn't find aspect type named {fqn}."
-            f"Try to find with different name"
+            "Didn't find aspect type named %s."
+            "Try to find with different name",
+            fqn,
         )
 
         new_name = f"{resource_name}_{location}"
@@ -140,14 +155,17 @@ class CloudTaskHandler:
         if aspect_type is not None and "transferStatus" in aspect_type:
             return fqn
 
-        self._logger.info(f"No aspect type named {fqn}.")
+        self._logger.info("No aspect type named %s.", fqn)
 
         return None
 
     def write_to_table(
         self,
         table_name: str,
-        row,
-    ):
+        row: dict,
+    ) -> None:
+        """
+        Writes a row of data to the specified BigQuery table.
+        """
         table_id = f"{self.project_name}.{self.dataset_name}.{table_name}"
         self._big_query_client.write_to_table(table_id, [row])

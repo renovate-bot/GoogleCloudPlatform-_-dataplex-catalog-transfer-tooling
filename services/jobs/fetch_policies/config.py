@@ -17,10 +17,11 @@ Module to manage application configuration settings based on command-line
 inputs. Utilizes `common.utils` for argument parsing.
 """
 
-from argparse import ArgumentParser, Action as argparseAction
-from typing import Dict, Any
 import re
-from common.utils import parse_common_args
+from argparse import ArgumentParser, Action as argparseAction
+from typing import Any
+
+from common.utils import parse_common_args, percent
 
 
 class ValidateScope(argparseAction):
@@ -28,8 +29,17 @@ class ValidateScope(argparseAction):
     Validates scope format and extracts type and ID.
     """
 
-    def __call__(self, parser, namespace, values, option_string=None):
-        pattern = r"^(organizations|folder)/(\d+)$"
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Any,
+        values: str,
+        option_string: str | None = None,
+    ) -> None:
+        """
+        Validates the scope format and sets the parsed scope in the namespace.
+        """
+        pattern = r"^(organizations|folders|projects)/(\d+)$"
         match = re.match(pattern, values)
 
         if match:
@@ -37,8 +47,8 @@ class ValidateScope(argparseAction):
             scope_id = match.group(2)
         else:
             parser.error(
-                "Invalid scope format. Expected 'organizations/{orgID}' "
-                "or 'folder/{folderID}'."
+                "Invalid scope format. Expected 'organizations/{orgID}', "
+                "'folders/{folderID}', or 'projects/{projectId}'."
             )
 
         setattr(
@@ -55,13 +65,25 @@ class ParseChoiceWithBoth(argparseAction):
 
     _transform = None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Initializes the action with an optional transform function.
+        """
         if "transform_function" in kwargs:
             self._transform = kwargs["transform_function"]
             del kwargs["transform_function"]
         super().__init__(*args, **kwargs)
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Any,
+        values: str,
+        option_string: str | None = None,
+    ) -> None:
+        """
+        Parses the choice and applies the transform function if provided.
+        """
         if "both" == values:
             actual_value = list(self.choices)
             actual_value.remove("both")
@@ -72,8 +94,15 @@ class ParseChoiceWithBoth(argparseAction):
         setattr(namespace, self.dest, actual_value)
 
 
-def create_parse_choice_with_both(transform_function: callable):
-    def inner(*args, **kwargs):
+def create_parse_choice_with_both(transform_function: callable) -> callable:
+    """
+    Function to create a ParseChoiceWithBoth action with a transform function.
+    """
+
+    def inner(*args: Any, **kwargs: Any) -> ParseChoiceWithBoth:
+        """
+        Inner function that creates an instance of `ParseChoiceWithBoth`.
+        """
         return ParseChoiceWithBoth(
             transform_function=transform_function, *args, **kwargs
         )
@@ -82,6 +111,9 @@ def create_parse_choice_with_both(transform_function: callable):
 
 
 def parse_service_args(parser: ArgumentParser) -> None:
+    """
+    Adds service-specific arguments to the argument parser.
+    """
     parser.add_argument(
         "-s",
         "--scope",
@@ -89,8 +121,8 @@ def parse_service_args(parser: ArgumentParser) -> None:
         required=True,
         action=ValidateScope,
         help=(
-            "Should be formatted as organizations/{orgId} or folder/{folderId},"
-            " defining the scope of projects for the process."
+            "Should be formatted as organizations/{orgId}, folders/{folderId},"
+            "or 'projects/{projectId}', defining the scope for the process."
         ),
     )
     parser.add_argument(
@@ -147,9 +179,19 @@ def parse_service_args(parser: ArgumentParser) -> None:
             "(default: 'fetch-policies-handler')."
         ),
     )
+    parser.add_argument(
+        "-qc",
+        "--quota-consumption",
+        default=20,
+        type=percent,
+        help=(
+            "Percentage of dataplex quota to use"
+            "(default: 20)."
+        ),
+    )
 
 
-def get_application_config() -> Dict[str, Any]:
+def get_application_config() -> dict:
     """
     Combines common and service-specific arguments into a unified configuration.
     """
@@ -175,4 +217,5 @@ def get_application_config() -> Dict[str, Any]:
         "queue": args.queue,
         "handler_name": args.handler_name,
         "dataset_location": args.dataset_location,
+        "quota_consumption": args.quota_consumption,
     }

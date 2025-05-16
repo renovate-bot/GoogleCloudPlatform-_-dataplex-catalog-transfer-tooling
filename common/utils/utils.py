@@ -18,10 +18,10 @@ and logging setup.
 """
 
 import logging
-from argparse import ArgumentParser, Namespace, ArgumentTypeError
+from argparse import ArgumentParser, ArgumentTypeError
 
 
-def str2bool(v):
+def str2bool(v: str) -> bool:
     """
     Converts a string representation of truth to a boolean value.
     """
@@ -35,7 +35,22 @@ def str2bool(v):
         raise ArgumentTypeError("Boolean value expected.")
 
 
-def parse_common_args(parser: ArgumentParser) -> Namespace:
+def percent(n: str) -> int:
+    """
+    Converts a string representation of truth to a boolean value.
+    """
+    try:
+        n = int(n)
+    except ValueError as e:
+        raise ArgumentTypeError("Not an integer") from e
+
+    if 0 < n <= 100:
+        return n
+    else:
+        raise ArgumentTypeError("value must be between 0 and 100.")
+
+
+def parse_common_args(parser: ArgumentParser) -> None:
     """
     Parses command-line arguments for the data transfer CLI tool.
     """
@@ -80,7 +95,7 @@ def parse_common_args(parser: ArgumentParser) -> Namespace:
     )
 
 
-def get_logger():
+def get_logger() -> logging.Logger:
     """
     Configures and retrieves the root logger with a specified logging
     level and format.

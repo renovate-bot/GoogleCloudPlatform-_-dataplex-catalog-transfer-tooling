@@ -18,11 +18,14 @@ inputs.Utilizes `common.utils` for argument parsing.
 """
 
 from argparse import ArgumentParser
-from typing import Dict, Any
+
 from common.utils import parse_common_args
 
 
 def parse_service_args(parser: ArgumentParser) -> None:
+    """
+    Adds service-related arguments to the argument parser.
+    """
     parser.add_argument(
         "-l",
         "--service-location",
@@ -35,7 +38,7 @@ def parse_service_args(parser: ArgumentParser) -> None:
     )
 
 
-def get_application_config() -> Dict[str, Any]:
+def get_application_config() -> dict:
     """
     Combines common and service-specific arguments into a unified configuration.
     """

@@ -18,9 +18,10 @@ Fetch Policies job tests
 
 import datetime
 import json
+import random
+from typing import Generator
 
 import pytest
-import random
 
 from common.cloud_task import CloudTaskPublisher
 from common.entities import EntryGroup, TagTemplate, Project
@@ -33,27 +34,25 @@ class TestFetchPoliciesJob:
     Fetch Policies job tests
     """
 
-    @pytest.fixture(scope="class")
-    def basic_config(self):
-        return {
-            "project_name": "hl2-gogl-dapx-t1iylu",
-            "service_location": "us-west1",
-            "dataset_location": "us-west1",
-            "dataset_name": "transfer_tooling_test",
-            "queue": "transfer-tooling-test",
-            "handler_name": "dummy",
-        }
-
     @pytest.fixture(scope="function")
-    def full_config(self, basic_config):
+    def full_config(self, basic_config: dict) -> dict:
+        """
+        Provides a full configuration dictionary with unique suffixes for
+        dataset and queue names.
+        """
         suffix = random.randint(1, 1000000)
         basic_config["dataset_name"] += "_" + str(suffix)
         basic_config["queue"] += "-" + str(suffix)
+        basic_config["quota_consumption"] = 20
 
         return basic_config
 
     @pytest.fixture(scope="function", autouse=True)
-    def big_query_client(self, full_config):
+    def big_query_client(self, full_config: dict) -> Generator:
+        """
+        Sets up a BigQuery client for the test environment and ensures cleanup
+        after tests.
+        """
         big_query_client = BigQueryAdapter(
             full_config["project_name"],
             full_config["dataset_location"],
@@ -62,25 +61,26 @@ class TestFetchPoliciesJob:
         yield big_query_client
         big_query_client.delete_dataset()
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup_bigquery_table(self, big_query_client, full_config):
+    @pytest.fixture(scope="class")
+    def test_resources(
+        self,
+    ) -> tuple[list[EntryGroup], list[TagTemplate], list[Project]]:
         """
-        Sets up a BigQuery table with test data for the `policies` table.
+        Provides test resources including EntryGroups,
+        TagTemplates, and Projects.
         """
-        entry_table_id = TableNames.ENTRY_GROUPS
-        tag_table_id = TableNames.TAG_TEMPLATES
-        project_table_id = TableNames.PROJECTS
-        entry_resource_mapping_id = TableNames.ENTRY_GROUPS_RESOURCE_MAPPING
-        tag_resource_mapping_id = TableNames.TAG_TEMPLATES_RESOURCE_MAPPING
-
         entries = [
-            EntryGroup("pDATAPLEX", "l", "eDATAPLEX", True),
-            EntryGroup("pDATA_CATALOG", "l", "eDATA_CATALOG", False),
+            EntryGroup("pDATAPLEX", "us-central1", "eDATAPLEX", True),
+            EntryGroup("pDATA_CATALOG", "us-central1", "eDATA_CATALOG", False),
+            EntryGroup("pDATAPLEX", "us-central1", "eDATAPLEX_wo_name", True),
         ]
 
         tags_templates = [
             TagTemplate("pDATAPLEX", "global", "tDATAPLEX", True, True),
-            TagTemplate("pDATA_CATALOG", "l", "tDATA_CATALOG", True, False),
+            TagTemplate(
+                "pDATA_CATALOG", "us-central1", "tDATA_CATALOG", True, False
+            ),
+            TagTemplate("pDATAPLEX", "global", "tDATAPLEX_wo_name", True, True),
         ]
 
         projects = [
@@ -90,6 +90,28 @@ class TestFetchPoliciesJob:
 
         projects[0].set_ancestry([("ORGANIZATION", 1)])
         projects[1].set_ancestry([("FOLDER", 2), ("ORGANIZATION", 1)])
+
+        return entries, tags_templates, projects
+
+    @pytest.fixture(scope="function", autouse=True)
+    def setup_bigquery_table(
+        self,
+        big_query_client: BigQueryAdapter,
+        full_config: dict,
+        test_resources: tuple[
+            list[EntryGroup], list[TagTemplate], list[Project]
+        ],
+    ) -> None:
+        """
+        Sets up a BigQuery table with test data for the `policies` table.
+        """
+        entry_table_id = TableNames.ENTRY_GROUPS
+        tag_table_id = TableNames.TAG_TEMPLATES
+        project_table_id = TableNames.PROJECTS
+        entry_resource_mapping_id = TableNames.ENTRY_GROUPS_RESOURCE_MAPPING
+        tag_resource_mapping_id = TableNames.TAG_TEMPLATES_RESOURCE_MAPPING
+
+        entries, tags_templates, projects = test_resources
 
         big_query_client.write_entities_to_table(
             entry_table_id, entries, datetime.date.fromisoformat("2025-01-01")
@@ -122,7 +144,19 @@ class TestFetchPoliciesJob:
                         entries[0].location,
                         entries[0].id,
                     ),
-                }
+                },
+                {
+                    "dataCatalogResourceName": EntryGroup.get_old_fqn(
+                        entries[1].project_id,
+                        entries[1].location,
+                        entries[1].id,
+                    ),
+                    "dataplexResourceName": EntryGroup.get_new_fqn(
+                        entries[1].project_id,
+                        entries[1].location,
+                        entries[1].id,
+                    ),
+                },
             ],
         )
         big_query_client.write_to_table(
@@ -142,7 +176,19 @@ class TestFetchPoliciesJob:
                         tags_templates[0].location,
                         tags_templates[0].id,
                     ),
-                }
+                },
+                {
+                    "dataCatalogResourceName": TagTemplate.get_old_fqn(
+                        tags_templates[1].project_id,
+                        tags_templates[1].location,
+                        tags_templates[1].id,
+                    ),
+                    "dataplexResourceName": TagTemplate.get_new_fqn(
+                        tags_templates[1].project_id,
+                        tags_templates[1].location,
+                        tags_templates[1].id,
+                    ),
+                },
             ],
         )
 
@@ -159,7 +205,7 @@ class TestFetchPoliciesJob:
             big_query_client.create_view_if_not_exists(view_id)
 
     @pytest.fixture(scope="function")
-    def cloud_task_client(self, full_config):
+    def cloud_task_client(self, full_config: dict) -> Generator:
         """
         Sets up a Cloud Task client for the test environment and ensures
         cleanup after tests.
@@ -169,40 +215,111 @@ class TestFetchPoliciesJob:
             full_config["service_location"],
             full_config["queue"],
         )
+
         yield cloud_task_client
-        cloud_task_client.delete_queue()
+
+        try:
+            cloud_task_client.delete_queue()
+        except Exception:
+            pass
+
+        try:
+            cloud_task_client.delete_queue(
+                queue_name=full_config["queue"] + "-us-central1"
+            )
+        except Exception:
+            pass
 
     @staticmethod
-    def generate_result(resource_types, managing_systems, scope):
-        resource_types = [
-            "EntryGroup" if x == "entry_group" else "TagTemplate"
-            for x in resource_types
-        ]
+    def generate_result(
+        resource_types: list,
+        managing_systems,
+        scope: tuple[str, int],
+        test_resources: tuple[
+            list[EntryGroup], list[TagTemplate], list[Project]
+        ],
+    ) -> list[dict, dict]:
+        """
+        Generates expected results based on the provided resource types
+        and scope.
+        """
+        scope_type, scope_id = scope
+        entry_groups, tag_templates, projects = test_resources
 
-        if scope == ("FOLDER", 2):
-            managing_systems.remove("DATAPLEX")
-
-        all_data = {
-            f"{"e" if r_type == "EntryGroup" else "t"}{system}": {
-                "resource_type": r_type,
-                "created_at": "2025-01-01",
-                "resource": {
-                    "resource_name": f"{"e" if r_type == "EntryGroup" else "t"}"
-                    f"{system}",
-                    "location": (
-                        "global"
-                        if r_type == "TagTemplate" and system == "DATAPLEX"
-                        else "l"
-                    ),
-                    "project_id": f"p{system}",
-                    "system": system,
-                },
+        project_to_scope = {
+            project.project_id: {
+                "ORGANIZATION": any(
+                    ancestor[0] == "ORGANIZATION" and ancestor[1] == scope_id
+                    for ancestor in project.ancestry
+                ),
+                "FOLDER": any(
+                    ancestor[0] == "FOLDER" and ancestor[1] == scope_id
+                    for ancestor in project.ancestry
+                ),
+                "PROJECT": project.project_number == scope_id,
             }
-            for r_type in resource_types
-            for system in managing_systems
+            for project in projects
         }
 
-        return all_data
+        def is_in_scope(resource: EntryGroup | TagTemplate) -> bool:
+            """
+            Determines if a resource is within the given scope.
+            """
+            match scope_type:
+                case "ORGANIZATION":
+                    in_scope = project_to_scope.get(
+                        resource.project_id, {}
+                    ).get("ORGANIZATION", False)
+                case "FOLDER":
+                    in_scope = project_to_scope.get(
+                        resource.project_id, {}
+                    ).get("FOLDER", False)
+                case "PROJECT":
+                    in_scope = project_to_scope.get(
+                        resource.project_id, {}
+                    ).get("PROJECT", False)
+                case _:
+                    raise ValueError(f"Unsupported scope type: {scope_type}")
+            return in_scope
+
+        filtered_resources = []
+        if "entry_group" in resource_types:
+            filtered_resources.extend(
+                {
+                    "resource_type": "EntryGroup",
+                    "created_at": "2025-01-01",
+                    "resource": {
+                        "resource_name": entry.id,
+                        "location": entry.location,
+                        "project_id": entry.project_id,
+                        "system": entry.managing_system.value,
+                    },
+                }
+                for entry in entry_groups
+                if is_in_scope(entry)
+                and entry.id != "eDATAPLEX_wo_name"
+                and entry.managing_system.value in managing_systems
+            )
+
+        if "tag_template" in resource_types:
+            filtered_resources.extend(
+                {
+                    "resource_type": "TagTemplate",
+                    "created_at": "2025-01-01",
+                    "resource": {
+                        "resource_name": tag.id,
+                        "location": tag.location,
+                        "project_id": tag.project_id,
+                        "system": tag.managing_system.value,
+                    },
+                }
+                for tag in tag_templates
+                if is_in_scope(tag)
+                and tag.id != "tDATAPLEX_wo_name"
+                and tag.managing_system.value in managing_systems
+            )
+
+        return filtered_resources
 
     @pytest.mark.parametrize(
         "resource_types, managing_systems, scope",
@@ -213,22 +330,34 @@ class TestFetchPoliciesJob:
                 ("ORGANIZATION", 1),
             ),
             (["entry_group"], ["DATAPLEX"], ("ORGANIZATION", 1)),
+            (["entry_group"], ["DATAPLEX"], ("PROJECT", 1)),
             (["tag_template"], ["DATA_CATALOG", "DATAPLEX"], ("FOLDER", 2)),
             (
                 ["entry_group", "tag_template"],
                 ["DATA_CATALOG"],
                 ("ORGANIZATION", 1),
             ),
+            (
+                ["entry_group", "tag_template"],
+                ["DATAPLEX"],
+                ("PROJECT", 1),
+            ),
         ],
     )
     def test_fetch_policies_job(
         self,
-        full_config,
-        cloud_task_client,
-        resource_types,
-        managing_systems,
-        scope,
-    ):
+        full_config: dict,
+        cloud_task_client: CloudTaskPublisher,
+        resource_types: list,
+        managing_systems: list,
+        scope: tuple[str, int],
+        test_resources: tuple[
+            list[EntryGroup], list[TagTemplate], list[Project]
+        ],
+    ) -> None:
+        """
+        Tests the Fetch Policies job for various configurations.
+        """
         full_config["resource_types"] = resource_types
         full_config["managing_systems"] = managing_systems
         full_config["scope"] = {"scope_type": scope[0], "scope_id": scope[1]}
@@ -236,13 +365,40 @@ class TestFetchPoliciesJob:
         controller._cloud_task_client._wait_after_queue_creation = 5
 
         controller.start_transfer()
+        tasks_data = []
 
-        messages = list(cloud_task_client.get_messages())
+        try:
+            messages_from_queue = list(cloud_task_client.get_messages())
+            if messages_from_queue:
+                tasks_data.extend(
+                    [
+                        json.loads(msg.http_request.body)
+                        for msg in messages_from_queue
+                    ]
+                )
+        except Exception:
+            pass
+
+        try:
+            additional_messages = list(
+                cloud_task_client.get_messages(
+                    queue_name=full_config["queue"] + "-us-central1"
+                )
+            )
+            if additional_messages:
+                tasks_data.extend(
+                    [
+                        json.loads(msg.http_request.body)
+                        for msg in additional_messages
+                    ]
+                )
+        except Exception:
+            pass
+
         test_data = self.generate_result(
-            resource_types, managing_systems, scope
+            resource_types, managing_systems, scope, test_resources
         )
 
-        tasks_data = [json.loads(msg.http_request.body) for msg in messages]
         assert len(tasks_data) == len(test_data)
         for task in tasks_data:
-            assert task == test_data[task["resource"]["resource_name"]]
+            assert task in test_data

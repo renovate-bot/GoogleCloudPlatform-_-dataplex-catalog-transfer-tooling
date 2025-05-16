@@ -15,16 +15,20 @@
 """
 Fetch Policies handler tests
 """
+
 import datetime
-import pytest
 import random
+
+from typing import Generator
+import pytest
+from google.cloud.bigquery import table
 
 from services.handlers.fetch_policies.handler import CloudTaskHandler
 from tests.mocks.api.datacatalog_api_mock import DatacatalogApiMock
 from tests.mocks.api.dataplex_api_mock import DataplexApiMock
 from common.entities.request_models import (
     FetchPoliciesTaskData,
-    ExtendedResourceData
+    ExtendedResourceData,
 )
 from common.big_query import BigQueryAdapter, TableNames
 
@@ -33,24 +37,22 @@ class TestFetchPoliciesHandler:
     """
     Fetch Policies handler tests
     """
-    @pytest.fixture(scope='class')
-    def basic_config(self):
-        return {
-            "project_name": "hl2-gogl-dapx-t1iylu",
-            "service_location": "us-west1",
-            "dataset_location": "us-west1",
-            "dataset_name": "transfer_tooling_test"
-        }
 
-    @pytest.fixture(scope='class')
-    def full_config(self, basic_config):
+    @pytest.fixture(scope="class")
+    def full_config(self, basic_config: dict) -> dict:
+        """
+        Generates a full configuration with a unique dataset name.
+        """
         suffix = random.randint(1, 1000000)
         basic_config["dataset_name"] += "_" + str(suffix)
 
         return basic_config
 
-    @pytest.fixture(scope='class', autouse=True)
-    def big_query_client(self, full_config):
+    @pytest.fixture(scope="class", autouse=True)
+    def big_query_client(self, full_config: dict) -> Generator:
+        """
+        Provides a BigQuery client and ensures cleanup after tests.
+        """
         big_query_client = BigQueryAdapter(
             full_config["project_name"],
             full_config["dataset_location"],
@@ -59,8 +61,11 @@ class TestFetchPoliciesHandler:
         yield big_query_client
         big_query_client.delete_dataset()
 
-    @pytest.fixture(scope='class')
-    def handler(self, full_config):
+    @pytest.fixture(scope="class")
+    def handler(self, full_config: dict) -> CloudTaskHandler:
+        """
+        Provides a CloudTaskHandler instance with mocked clients.
+        """
         handler = CloudTaskHandler(full_config)
         test_data = {
             "projects/p1/locations/l1/entryGroups/e1": {
@@ -81,15 +86,18 @@ class TestFetchPoliciesHandler:
             ("DATA_CATALOG", "e2"),
             ("DATAPLEX", "e1"),
             ("DATAPLEX", "e2"),
-        ]
+        ],
     )
     def test_fetch_policies_handler(
         self,
-        handler,
-        big_query_client,
-        system,
-        resource
-    ):
+        handler: CloudTaskHandler,
+        big_query_client: BigQueryAdapter,
+        system: str,
+        resource: str,
+    ) -> None:
+        """
+        Tests the Fetch Policies handler for various systems and resources.
+        """
         request = FetchPoliciesTaskData(
             resource_type="EntryGroup",
             created_at=datetime.date.fromisoformat("2025-01-01"),
@@ -97,21 +105,23 @@ class TestFetchPoliciesHandler:
                 location="l1",
                 resource_name=resource,
                 project_id="p1",
-                system=system
-            )
+                system=system,
+            ),
         )
 
         response = handler.handle_cloud_task(request)
         assert response == ({"message": "Task processed"}, 200)
 
         table_name = TableNames.IAM_POLICIES
-        rows = list(big_query_client._select_all_data_from_table(
-            big_query_client._get_table_ref(table_name)
-        ).result())
+        rows = list(
+            big_query_client._select_all_data_from_table(
+                big_query_client._get_table_ref(table_name)
+            ).result()
+        )
 
         resource_name = f"projects/p1/locations/l1/entryGroups/{resource}"
 
-        def filter_fun(x):
+        def filter_fun(x: table.Row) -> bool:
             return x.resourceName == resource_name and x.system == system
 
         row = next(filter(filter_fun, rows))
@@ -119,12 +129,17 @@ class TestFetchPoliciesHandler:
 
         assert row.resourceName == resource_name
         assert row.system == system
-        assert bindings == ([
-            {
-                "role": "role1",
-                "members": ["m1", "m2"],
-            },{
-                "role": "role2",
-                "members": ["m3"],
-            }
-        ] if resource == "e1" else [])
+        assert bindings == (
+            [
+                {
+                    "role": "role1",
+                    "members": ["m1", "m2"],
+                },
+                {
+                    "role": "role2",
+                    "members": ["m3"],
+                },
+            ]
+            if resource == "e1"
+            else []
+        )

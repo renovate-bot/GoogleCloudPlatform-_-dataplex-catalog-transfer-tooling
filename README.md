@@ -32,7 +32,8 @@ You will also receive a mapping table showing the relation between Data Catalog 
    * roles/cloudtasks.enqueuer
    * roles/datacatalog.searchAdmin
    * roles/serviceusage.serviceUsageConsumer
-   * roles/dataplex.catalogAdmin
+   * roles/dataplex.aspectTypeOwner
+   * roles/dataplex.entryGroupOwner
    * roles/logging.configWriter
    * roles/iam.securityReviewer
    * roles/run.invoker
@@ -67,6 +68,10 @@ You will also receive a mapping table showing the relation between Data Catalog 
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest -f ./services/handlers/fetch_policies/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest -f ./services/jobs/fetch_policies/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/audit-logs-job:latest -f ./services/jobs/audit_logs/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-handler:latest -f ./services/handlers/transfer_resources/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest -f ./services/jobs/transfer_resources/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest -f ./services/handlers/convert_private_tag_templates/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest -f ./services/jobs/convert_private_tag_templates/Dockerfile .
     ```
     Where
    * work_project_id - ID of the project you've created for this tool
@@ -83,6 +88,10 @@ docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/audit-logs-job:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-handler:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest
 ```
 # Deploy
 When you will set up container commands, be sure to input it separately (as at the picture below)
@@ -110,7 +119,7 @@ container arguments
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest``` image
 3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
 container arguments
-4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}``` or ```folder/{folderId}```
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
 5) You can set up resource type using ```-rt entry_group|tag_template|both``` flag 
 6) You can set up system where to fetch policies by using ```-ms data_catalog|dataplex|both``` flag
 7) In Security section select the Service Account you've created
@@ -120,6 +129,21 @@ container arguments
 3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
 container arguments
 4) In Security section select the Service Account you've created
+## convert-private-tag-templates-job
+1) Create Cloud Run job
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest``` image
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+container arguments
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
+5) In Security section select the Service Account you've created
+## transfer-resources-job
+1) Create Cloud Run job
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest``` image
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+container arguments
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
+5) You can set up resource type using ```-rt entry_group|tag_template|both``` flag
+6) In Security section select the Service Account you've created
 ## fetch-projects-handler
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest``` image
@@ -151,6 +175,24 @@ container arguments
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest``` image
 3) Service name ```fetch-policies-handler``` (Cloud tasks will target this name)
+4) location ```us-central1```
+5) Authentication - Require authentication
+6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+container arguments
+7) In Security section select the Service Account you've created
+## convert-private-tag-templates-handler
+1) Create Cloud Run service
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest``` image
+3) Service name ```convert-private-tag-templates-handler``` (Cloud tasks will target this name)
+4) location ```us-central1```
+5) Authentication - Require authentication
+6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+container arguments
+7) In Security section select the Service Account you've created
+## transfer-resources-handler
+1) Create Cloud Run service
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-handler:latest``` image
+3) Service name ```transfer-resources-handler``` (Cloud tasks will target this name)
 4) location ```us-central1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 

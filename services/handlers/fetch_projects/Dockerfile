@@ -18,11 +18,11 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /usr/src/app
 
-COPY ./services/handlers/fetch_projects ./
-COPY ./common/ ./common
 COPY ./requirements.txt ./
-
 RUN pip install -r requirements.txt
+
+COPY ./common/ ./common
+COPY ./services/handlers/fetch_projects ./
 
 EXPOSE 8080
 

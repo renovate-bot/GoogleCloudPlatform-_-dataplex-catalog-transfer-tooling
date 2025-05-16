@@ -18,10 +18,10 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /usr/src/app
 
-COPY ./services/jobs/fetch_projects ./
-COPY ./common/ ./common
 COPY ./requirements.txt ./
-
 RUN pip install -r requirements.txt
+
+COPY ./common/ ./common
+COPY ./services/jobs/fetch_projects ./
 
 CMD ["python3", "main.py"]

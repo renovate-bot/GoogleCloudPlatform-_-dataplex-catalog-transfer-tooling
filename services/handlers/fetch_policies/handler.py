@@ -18,9 +18,15 @@ project management and data processing. It integrates with
 ResourceManagerApiAdapter and BigQueryAdapter to manage project data and
 store it in BigQuery.
 """
+
 from common.api import DataplexApiAdapter, DatacatalogApiAdapter
 from common.big_query import BigQueryAdapter, TableNames
-from common.entities import FetchPoliciesTaskData, EntryGroup, TagTemplate, ManagingSystem
+from common.entities import (
+    FetchPoliciesTaskData,
+    EntryGroup,
+    TagTemplate,
+    ManagingSystem,
+)
 from common.exceptions import IncorrectTypeException
 from common.utils import get_logger
 
@@ -30,7 +36,7 @@ class CloudTaskHandler:
     A handler class for processing cloud tasks related to project management.
     """
 
-    def __init__(self, app_config):
+    def __init__(self, app_config: dict) -> None:
         """
         Initializes the CloudTaskHandler
         """
@@ -45,7 +51,9 @@ class CloudTaskHandler:
         )
         self._logger = get_logger()
 
-    def handle_cloud_task(self, task_data: FetchPoliciesTaskData):
+    def handle_cloud_task(
+        self, task_data: FetchPoliciesTaskData
+    ) -> tuple[dict[str, str], int]:
         """
         Processes a single cloud task by extracting project information,
         fetching iam policies, and writing the project data to a BigQuery
@@ -67,24 +75,28 @@ class CloudTaskHandler:
                 resource.resource_name,
             )
         else:
-            raise IncorrectTypeException(f"Unknown resource type: "
-                                         f"{task_data.resource_type}")
+            raise IncorrectTypeException(
+                f"Unknown resource type: " f"{task_data.resource_type}"
+            )
         data = {
             "resourceName": fqn,
             "system": task_data.resource.system,
-            "bindings": policies
+            "bindings": policies,
         }
 
-        table_name = (f"{self.project_name}."
-                      f"{self.dataset_name}."
-                      f"{TableNames.IAM_POLICIES}")
-        self._big_query_client.write_to_table(
-            table_name,
-            [data]
+        table_name = (
+            f"{self.project_name}."
+            f"{self.dataset_name}."
+            f"{TableNames.IAM_POLICIES}"
         )
+        self._big_query_client.write_to_table(table_name, [data])
         return {"message": "Task processed"}, 200
 
-    def get_policies(self, task_data):
+    def get_policies(self, task_data: FetchPoliciesTaskData) -> list[dict]:
+        """
+        Fetches IAM policies for the given resource based on its type
+        and system.
+        """
         resource_type = task_data.resource_type
         system = task_data.resource.system
         location = task_data.resource.location
@@ -106,5 +118,6 @@ class CloudTaskHandler:
                 resource_id,
             )
         else:
-            raise IncorrectTypeException(f"Unknown managing system: "
-                                         f"{system}")
+            raise IncorrectTypeException(
+                f"Unknown managing system: " f"{system}"
+            )

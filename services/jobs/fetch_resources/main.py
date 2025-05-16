@@ -17,12 +17,12 @@ This script initializes and starts a cloud task consumer server and a data
 transfer process.
 
 The script uses threading to run an ASGI server for handling cloud tasks
-concurrently with a data transfer operation. The data transfer is managed 
-by the TransferController, which orchestrates the retrieval and storage of 
+concurrently with a data transfer operation. The data transfer is managed
+by the TransferController, which orchestrates the retrieval and storage of
 data from the Google Cloud Data Catalog to BigQuery.
 
 Functions:
-- main: Initializes and starts the cloud task consumer and data transfer 
+- main: Initializes and starts the cloud task consumer and data transfer
   process.
 """
 
@@ -30,7 +30,7 @@ from transfer_controller import TransferController
 from config import get_application_config
 
 
-def main(app_config: dict):
+def main(app_config: dict) -> None:
     """
     Starts the cloud task consumer server and initiates the data transfer
     process.

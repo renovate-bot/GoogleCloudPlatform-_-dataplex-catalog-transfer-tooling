@@ -1,0 +1,12 @@
+[pytest]
+pythonpath = .
+
+env =
+    PROJECT=<your-project-id>
+    DATASET_NAME=<your-dataset-name>
+    DATASET_LOCATION=<your-dataset-location>
+    QUEUE=<your-queue-name>
+    HANDLER_NAME=<your-handler-name>
+    SERVICE_LOCATION=<your-service-location>
+    LOG_SINK_NAME=<your-log-sink-name>
+    CLOUDTASK_OIDC_SERVICE_ACCOUNT=<your-service-account-email>

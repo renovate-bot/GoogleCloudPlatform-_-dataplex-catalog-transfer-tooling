@@ -18,7 +18,7 @@ inputs.Utilizes `common.utils` for argument parsing.
 """
 
 from argparse import ArgumentParser
-from typing import Dict, Any
+
 from common.utils import parse_common_args
 
 
@@ -38,7 +38,7 @@ def parse_service_args(parser: ArgumentParser) -> None:
     )
 
 
-def get_application_config() -> Dict[str, Any]:
+def get_application_config() -> dict:
     """
     Combines common and service-specific arguments into a unified configuration.
     """
@@ -61,7 +61,7 @@ def get_application_config() -> Dict[str, Any]:
     }
 
 
-def get_log_filter():
+def get_log_filter() -> str:
     """
     Returns the log filter string for filtering audit logs.
 
