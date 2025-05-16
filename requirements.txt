@@ -12,7 +12,7 @@ colorama==0.4.6
 Deprecated==1.2.18
 dill==0.3.9
 fastapi==0.115.11
-Flask==3.1.0
+Flask==3.1.1
 google-api-core==2.24.1
 google-api-python-client==2.162.0
 google-auth==2.38.0
