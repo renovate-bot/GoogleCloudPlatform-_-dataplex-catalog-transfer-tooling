@@ -34,6 +34,8 @@ You can convert between private and public tag templates and initiate transfer o
    * roles/cloudtasks.admin
    * roles/cloudtasks.enqueuer
    * roles/datacatalog.searchAdmin
+   * roles/datacatalog.tagTemplateOwner
+   * roles/datacatalog.entryGroupOwner
    * roles/serviceusage.serviceUsageConsumer
    * roles/dataplex.aspectTypeOwner
    * roles/dataplex.entryGroupOwner

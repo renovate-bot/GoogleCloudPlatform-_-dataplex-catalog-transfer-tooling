@@ -207,9 +207,9 @@ class BigQueryAdapter:
         table_ref = self._get_table_ref(ViewNames.ENTRY_GROUPS_VIEW)
         target_creation_date = self._get_target_creation_date(table_ref)
         query = f"""SELECT
-                        projectId, 
-                        location, 
-                        entryGroupId, 
+                        projectId,
+                        location,
+                        entryGroupId,
                         managingSystem
                     FROM `{table_ref}`
                     WHERE {self._partition_column} = \"{target_creation_date}\"
@@ -238,8 +238,8 @@ class BigQueryAdapter:
         table_ref = self._get_table_ref(ViewNames.TAG_TEMPLATES_VIEW)
         target_creation_date = self._get_target_creation_date(table_ref)
         query = f"""SELECT
-                        projectId, 
-                        location, 
+                        projectId,
+                        location,
                         tagTemplateId,
                         isPubliclyReadable,
                         managingSystem
@@ -280,19 +280,19 @@ class BigQueryAdapter:
         )
 
         query = f"""
-            DECLARE scope_type STRING; 
+            DECLARE scope_type STRING;
             SET scope_type = \"{scope["scope_type"]}\";
 
             SELECT DISTINCT
                 resourceName
-            FROM 
+            FROM
                 `{tt_table_ref}` AS tag_templates
-            JOIN 
+            JOIN
                 `{projects_table_ref}` AS projects
-            ON 
+            ON
                 tag_templates.projectId = projects.projectId,
             UNNEST(projects.ancestry) AS ancestryItem
-            WHERE 
+            WHERE
                 tag_templates.createdAt = \"{target_creation_date_for_tt}\"
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
                 AND tag_templates.isPubliclyReadable = FALSE
@@ -300,7 +300,7 @@ class BigQueryAdapter:
                     (scope_type IN ("FOLDER", "ORGANIZATION")
                     AND ancestryItem.type = \"{scope["scope_type"]}\"
                     AND ancestryItem.id = \"{scope["scope_id"]}\")
-                    OR (scope_type = "PROJECT" 
+                    OR (scope_type = "PROJECT"
                     AND projects.projectNumber = {scope["scope_id"]})
                 )
         """
@@ -353,25 +353,25 @@ class BigQueryAdapter:
             projects_table_ref
         )
         query = f"""
-            DECLARE scope_type STRING; 
+            DECLARE scope_type STRING;
             SET scope_type = \"{scope["scope_type"]}\";
 
             SELECT DISTINCT
                 resourceName as dataCatalogResourceName,
                 dataplexResourceName,
                 managingSystem
-            FROM 
+            FROM
                 `{eg_table_ref}` AS entry_groups
-            JOIN 
+            JOIN
                 `{projects_table_ref}` AS projects
-            ON 
+            ON
                 entry_groups.projectId = projects.projectId,
             UNNEST(projects.ancestry) AS ancestryItem
-            WHERE 
+            WHERE
                 entry_groups.createdAt = \"{target_creation_date_for_eg}\"
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
                 AND dataplexResourceName IS NOT NULL
-                AND entry_groups.managingSystem IN 
+                AND entry_groups.managingSystem IN
                     ({",".join([f"\"{v}\"" for v in managing_systems])})
                 AND (
                     (
@@ -379,9 +379,9 @@ class BigQueryAdapter:
                         AND ancestryItem.type = \"{scope["scope_type"]}\"
                         AND ancestryItem.id = \"{scope["scope_id"]}\"
                     )
-                    OR 
+                    OR
                     (
-                        scope_type = "PROJECT" 
+                        scope_type = "PROJECT"
                         AND projects.projectNumber = {scope["scope_id"]}
                     )
                 )
@@ -441,26 +441,26 @@ class BigQueryAdapter:
             projects_table_ref
         )
         query = f"""
-            DECLARE scope_type STRING; 
+            DECLARE scope_type STRING;
             SET scope_type = \"{scope["scope_type"]}\";
 
             SELECT DISTINCT
-                resourceName as dataCatalogResourceName, 
+                resourceName as dataCatalogResourceName,
                 dataplexResourceName,
                 isPubliclyReadable,
                 managingSystem
-            FROM 
+            FROM
                 `{tt_table_ref}` AS tag_templates
-            JOIN 
+            JOIN
                 `{projects_table_ref}` AS projects
-            ON 
+            ON
                 tag_templates.projectId = projects.projectId,
             UNNEST(projects.ancestry) AS ancestryItem
-            WHERE 
+            WHERE
                 tag_templates.createdAt = \"{target_creation_date_for_tt}\"
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
                 AND dataplexResourceName IS NOT NULL
-                AND tag_templates.managingSystem IN 
+                AND tag_templates.managingSystem IN
                     ({",".join([f"\"{v}\"" for v in managing_systems])})
                 AND (
                     (
@@ -468,9 +468,9 @@ class BigQueryAdapter:
                         AND ancestryItem.type = \"{scope["scope_type"]}\"
                         AND ancestryItem.id = \"{scope["scope_id"]}\"
                     )
-                    OR 
+                    OR
                     (
-                        scope_type = "PROJECT" 
+                        scope_type = "PROJECT"
                         AND projects.projectNumber = {scope["scope_id"]}
                     )
                 )
