@@ -39,7 +39,7 @@ class ValidateScope(argparseAction):
         """
         Validates the scope format and sets the parsed scope in the namespace.
         """
-        pattern = r"^(organizations|folders|project)/(\d+)$"
+        pattern = r"^(organizations|folders|projects)/(\d+)$"
         match = re.match(pattern, values)
 
         if match:
@@ -48,7 +48,7 @@ class ValidateScope(argparseAction):
         else:
             parser.error(
                 "Invalid scope format. Expected 'organizations/{orgID}' "
-                ",'folders/{folderID}' or 'project/{projectID}' ."
+                ",'folders/{folderID}' or 'projects/{projectID}' ."
             )
 
         setattr(
