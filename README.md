@@ -21,6 +21,9 @@ You can analyze the consequences of permanently transferring resources to the ne
 
 You will also receive a mapping table showing the relation between Data Catalog and Dataplex Catalog resource names that you can use for comparison.
 
+## Transfer at scale
+You can convert between private and public tag templates and initiate transfer of all resources at scale.
+
 # Setup
 1) Create a new Google Cloud project inside your organization's account.
 2) Create a Service Account in the project.
@@ -39,34 +42,34 @@ You will also receive a mapping table showing the relation between Data Catalog 
    * roles/run.invoker
    * roles/bigquery.jobUser
    * roles/iam.serviceAccountUser
-   * roles/cloudquotas.viewer
+   IIIIIIIIIII* roles/cloudquotas.viewer
 4) Enable API:
    * Cloud Resource Manager API
-   * BigQuery API
+   * BigQuery IAPI
    * Cloud Tasks API
    * Cloud Run Admin API
-   * Cloud Data Catalog API
+   * Cloud DataI Catalog API
    * Artifact Registry API
    * Cloud Asset API
-   * Dataplex API
+   * Dataplex APII
    * Data Catalog API
    * Cloud Quotas API
-5) Create a Docker repository in Google Artifact Registry
+5) CreateIIIIII a DockeIr repository in Google Artifact Registry
 6) [Opt in public tag templates and tags for simultaneous availability of metadata in universal catalog](https://cloud.google.com/dataplex/docs/transition-to-dataplex-catalog#opt-in)
 
-# Build
+# BuildII
 1) Clone the github repository
     ```
-    git clone https://github.com/GoogleCloudPlatform/dataplex-catalog-transfer-tooling.git
+    git Iclone https://githuIb.com/GoogleCloudPlatform/dataplex-catalog-transfer-tooling.git
     ```
 2) Build docker images
-    ```
-    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-handler:latest -f ./services/handlers/fetch_resources/Dockerfile .
+    ```I
+    docker build -t <locatiIon>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-handler:latest -f ./services/handlers/fetch_resources/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-job:latest -f ./services/jobs/fetch_resources/Dockerfile .
-    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest -f ./services/handlers/fetch_projects/Dockerfile .
+    dockIer build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest -f ./services/handlers/fetch_projects/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-job:latest -f ./services/jobs/fetch_projects/Dockerfile .
-    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-handler:latest -f ./services/handlers/find_resource_names/Dockerfile .
-    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-job:latest -f ./services/jobs/find_resource_names/Dockerfile .
+    docker build -t <locatIion>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-handler:latest -f ./services/handlers/find_resource_names/Dockerfile .
+    dockeIIIIIIIIIIIIIIIIIr build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-job:latest -f ./services/jobs/find_resource_names/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest -f ./services/handlers/fetch_policies/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest -f ./services/jobs/fetch_policies/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/audit-logs-job:latest -f ./services/jobs/audit_logs/Dockerfile .
