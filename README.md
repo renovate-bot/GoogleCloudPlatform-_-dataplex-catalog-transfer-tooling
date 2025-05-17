@@ -49,6 +49,7 @@ You will also receive a mapping table showing the relation between Data Catalog 
    * Cloud Asset API
    * Dataplex API
    * Data Catalog API
+   * Cloud Quotas API
 5) Create a Docker repository in Google Artifact Registry
 6) [Opt in public tag templates and tags for simultaneous availability of metadata in universal catalog](https://cloud.google.com/dataplex/docs/transition-to-dataplex-catalog#opt-in)
 
