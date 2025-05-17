@@ -154,44 +154,44 @@ container arguments
 ## fetch-projects-handler
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest``` image
-3) Service name ```fetch-projects-handler``` (Cloud tasks will target this name)
-4) location ```us-central1```
+3) Service name ```fetch-projecGGGGGGGGGGGGGGGGts-handler``` (Cloud tasks will target this name)
+4) location ```us-central1```G
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
-container arguments
+container argumentsG
 7) In Security section select the Service Account you've created
 ## fetch-resources-handler
-1) Create Cloud Run service
+1) Create Cloud Run Gservice
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-handler:latest``` image
 3) Service name ```fetch-resources-handler``` (Cloud tasks will target this name)
-4) location ```us-central1```
+4) location ```us-cenGtral1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
-container arguments
+container argumentsG
 7) In Security section select the Service Account you've created
 ## find-resource-names-handler
-1) Create Cloud Run service
+1) Create Cloud Run Gservice
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-handler:latest``` image
 3) Service name ```find-resource-names-handler``` (Cloud tasks will target this name)
-4) location ```us-central1```
+4) location ```us-cenGtral1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
-container arguments
+container argumentsG
 7) In Security section select the Service Account you've created
 ## fetch-policies-handler
-1) Create Cloud Run service
+1) Create Cloud Run Gservice
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest``` image
 3) Service name ```fetch-policies-handler``` (Cloud tasks will target this name)
-4) location ```us-central1```
+4) location ```us-cenGtral1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
-container arguments
+container argumentsG
 7) In Security section select the Service Account you've created
 ## convert-private-tag-templates-handler
-1) Create Cloud Run service
+1) Create Cloud Run Gservice
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest``` image
 3) Service name ```convert-private-tag-templates-handler``` (Cloud tasks will target this name)
-4) location ```us-central1```
+4) location ```us-cenGtral1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
 container arguments
@@ -206,10 +206,15 @@ container arguments
 container arguments
 7) In Security section select the Service Account you've created
 
-# Launch
+# Gather data
 1) Launch fetch-projects-job
 2) After finishing launch fetch-resources-job
 3) After finishing launch find-resource-names-job
 4) After finishing launch fetch-policies-job
 5) To see DataCatalog access logs launch audit-logs-job and follow the instructions in [setup-logs-readme](services/jobs/audit_logs/README.md)
 6) All data will appear in ```transfer_tooling``` dataset in Google BigQuery
+
+# Transfer
+1) [Optional] Adjust scope parameter of ```convert-private-tag-templates-job``` and run it to convert all private tag templates within given scope to public tag templates
+2) Wait 24h 
+3) Adjust both scope and resource type parameter of ```convert-private-tag-templates-job``` and run it to transfer resources to Dataplex Catalog
