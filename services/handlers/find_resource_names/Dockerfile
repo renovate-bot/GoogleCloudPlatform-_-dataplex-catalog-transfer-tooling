@@ -18,11 +18,11 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /usr/src/app
 
-COPY ./services/handlers/find_resource_names ./
-COPY ./common/ ./common
 COPY ./requirements.txt ./
-
 RUN pip install -r requirements.txt
+
+COPY ./common/ ./common
+COPY ./services/handlers/find_resource_names ./
 
 EXPOSE 8080
 

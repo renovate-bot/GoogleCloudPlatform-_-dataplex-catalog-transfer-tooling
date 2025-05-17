@@ -15,8 +15,10 @@
 """
 Fetch Resources handler tests
 """
+
 import json
 import random
+from typing import Generator
 from datetime import date
 from unittest.mock import MagicMock
 
@@ -34,21 +36,7 @@ class TestCloudTaskHandler:
     """
 
     @pytest.fixture(scope="class")
-    def basic_config(self):
-        """
-        Provides a basic configuration dictionary for the test environment.
-        """
-        return {
-            "project_name": "hl2-gogl-dapx-t1iylu",
-            "service_location": "us-central1",
-            "handler_name": "test-fetch-resources-handler",
-            "queue": "test-resource-discovery",
-            "dataset_location": "US",
-            "dataset_name": "test_fetch_resources_handler",
-        }
-
-    @pytest.fixture(scope="class")
-    def full_config(self, basic_config):
+    def full_config(self, basic_config: dict) -> None:
         """
         Extends the basic configuration with a unique queue name by
         appending a random suffix.
@@ -60,14 +48,14 @@ class TestCloudTaskHandler:
         return basic_config
 
     @pytest.fixture
-    def mock_api_client(self):
+    def mock_api_client(self) -> MagicMock:
         """
         Provides a mock for the DatacatalogApiAdapter.
         """
         return MagicMock()
 
     @pytest.fixture(scope="class", autouse=True)
-    def big_query_client(self, full_config):
+    def big_query_client(self, full_config: dict) -> Generator:
         """
         Sets up a BigQuery client for the test environment and ensures
         cleanup after tests.
@@ -81,7 +69,7 @@ class TestCloudTaskHandler:
         big_query_client.delete_dataset()
 
     @pytest.fixture(scope="class")
-    def cloud_task_client(self, full_config):
+    def cloud_task_client(self, full_config) -> Generator:
         """
         Sets up a Cloud Task client for the test environment and ensures
         cleanup after tests.
@@ -97,8 +85,12 @@ class TestCloudTaskHandler:
 
     @pytest.fixture
     def handler(
-        self, full_config, big_query_client, mock_api_client, cloud_task_client
-    ):
+        self,
+        full_config: dict,
+        big_query_client: BigQueryAdapter,
+        mock_api_client: MagicMock,
+        cloud_task_client: CloudTaskPublisher,
+    ) -> CloudTaskHandler:
         """
         Provides an instance of CloudTaskHandler with mocked dependencies.
         """
@@ -110,8 +102,12 @@ class TestCloudTaskHandler:
         return handler
 
     def test_handle_cloud_task_entry_group(
-        self, handler, mock_api_client, big_query_client, cloud_task_client
-    ):
+        self,
+        handler: CloudTaskHandler,
+        mock_api_client: MagicMock,
+        big_query_client: BigQueryAdapter,
+        cloud_task_client: CloudTaskPublisher,
+    ) -> None:
         """
         Tests the handle_cloud_task method for the 'entry_group' resource type.
         """
@@ -155,7 +151,6 @@ class TestCloudTaskHandler:
             row.resourceName
             == "projects/project1/locations/us-west1/entryGroups/eg1"
         )
-        assert row.dataplexResourceName is None
         assert row.projectId == "project1"
         assert row.location == "us-west1"
         assert row.entryGroupId == "eg1"
@@ -167,8 +162,12 @@ class TestCloudTaskHandler:
         assert len(messages) == 0
 
     def test_handle_cloud_task_tag_template_with_next_page_token(
-        self, handler, mock_api_client, big_query_client, cloud_task_client
-    ):
+        self,
+        handler: CloudTaskHandler,
+        mock_api_client: MagicMock,
+        big_query_client: BigQueryAdapter,
+        cloud_task_client: CloudTaskPublisher,
+    ) -> None:
         """
         Tests the handle_cloud_task method for the 'tag_template' resource type
         with next_page_token.
@@ -223,7 +222,6 @@ class TestCloudTaskHandler:
             row.resourceName
             == "projects/project1/locations/us-west1/tagTemplates/tt1"
         )
-        assert row.dataplexResourceName is None
         assert row.projectId == "project1"
         assert row.location == "us-west1"
         assert row.tagTemplateId == "tt1"

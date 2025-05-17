@@ -16,4 +16,4 @@
 Handles common tasks such as CLI argument parsing and logging for applications.
 """
 
-from common.utils.utils import parse_common_args, get_logger
+from common.utils.utils import parse_common_args, get_logger, percent

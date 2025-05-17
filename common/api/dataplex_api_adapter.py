@@ -22,6 +22,7 @@ Classes:
 - DataplexApiAdapter: An adapter class for interacting
 with the Data Catalog API.
 """
+
 import google_auth_httplib2
 
 import google.cloud.dataplex as dataplex
@@ -41,7 +42,7 @@ class DataplexApiAdapter:
     An adapter class for interacting with the Google Cloud Dataplex API.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the DataplexApiAdapter with a Data Catalog client.
         """
@@ -80,36 +81,65 @@ class DataplexApiAdapter:
                 return None
             raise e
 
+    def delete_entry_group(
+        self, project: str, location: str, name: str
+    ) -> None:
+        """
+        Deletes an entry group.
+        """
+        fqn = EntryGroup.get_new_fqn(project, location, name)
+        self._client.delete_entry_group(name=fqn)
+
+    def delete_aspect_type(
+        self, project: str, location: str, name: str
+    ) -> dict | None:
+        """
+        Deletes an aspect type.
+        """
+        fqn = TagTemplate.get_new_fqn(project, location, name)
+        http = google_auth_httplib2.AuthorizedHttp(self._credentials)
+        try:
+            answer = (
+                self._plain_client.projects()
+                .locations()
+                .aspectTypes()
+                .delete(name=fqn)
+                .execute(http=http)
+            )
+            return answer
+        except HttpError as e:
+            if e.status_code == 404:
+                return None
+            raise e
+
     def get_resource_policy(
-            self,
-            resource_type: str,
-            project: str,
-            location: str,
-            name: str
-    ):
+        self, resource_type: str, project: str, location: str, name: str
+    ) -> list:
+        """
+        Retrieves the IAM policy bindings for a resource.
+        """
         http = google_auth_httplib2.AuthorizedHttp(self._credentials)
         if resource_type == TagTemplate.__name__:
             fqn = TagTemplate.get_new_fqn(project, location, name)
             response = (
-                self._plain_client.
-                projects().
-                locations().
-                aspectTypes().
-                getIamPolicy(resource=fqn).
-                execute(http=http)
+                self._plain_client.projects()
+                .locations()
+                .aspectTypes()
+                .getIamPolicy(resource=fqn)
+                .execute(http=http)
             )
             return response.get("bindings", [])
         elif resource_type == EntryGroup.__name__:
             fqn = EntryGroup.get_new_fqn(project, location, name)
             response = (
-                self._plain_client.
-                projects().
-                locations().
-                entryGroups().
-                getIamPolicy(resource=fqn).
-                execute(http=http)
+                self._plain_client.projects()
+                .locations()
+                .entryGroups()
+                .getIamPolicy(resource=fqn)
+                .execute(http=http)
             )
             return response.get("bindings", [])
         else:
-            raise IncorrectTypeException(f"Unknown resource type "
-                                         f"{resource_type}")
+            raise IncorrectTypeException(
+                f"Unknown resource type " f"{resource_type}"
+            )

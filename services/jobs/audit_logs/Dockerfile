@@ -18,10 +18,10 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /usr/src/app
 
-COPY ./services/jobs/audit_logs ./
-COPY ./common/ ./common
 COPY ./requirements.txt ./
-
 RUN pip install -r requirements.txt
+
+COPY ./common/ ./common
+COPY ./services/jobs/audit_logs ./
 
 CMD ["python3", "main.py"]

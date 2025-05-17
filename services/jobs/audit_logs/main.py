@@ -19,16 +19,18 @@ to set up the required resources.
 """
 
 from setup_audit_log import AuditLogsSetup
-from config import get_application_config
+from config import get_application_config, get_log_filter
 
 
-def main(app_config: dict):
+def main(app_config: dict, log_filter: str) -> None:
     """
     Main function to set up the audit log sink.
     """
     audit_log_job = AuditLogsSetup(app_config)
-    audit_log_job.create_sink()
+    audit_log_job.create_sink(log_filter)
+
 
 if __name__ == "__main__":
     config = get_application_config()
-    main(config)
+    log_filter_param = get_log_filter()
+    main(config, log_filter_param)

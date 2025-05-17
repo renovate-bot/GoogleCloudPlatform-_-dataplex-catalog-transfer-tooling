@@ -20,7 +20,7 @@ store it in BigQuery.
 """
 
 from common.api import ResourceManagerApiAdapter
-from common.entities import Project
+from common.entities import Project, FetchProjectsTaskData
 from common.big_query import BigQueryAdapter, TableNames
 
 
@@ -29,7 +29,7 @@ class CloudTaskHandler:
     A handler class for processing cloud tasks related to project management.
     """
 
-    def __init__(self, app_config):
+    def __init__(self, app_config: dict) -> None:
         """
         Initializes the CloudTaskHandler with ResourceManagerApiAdapter and
         BigQueryAdapter clients.
@@ -38,12 +38,12 @@ class CloudTaskHandler:
         self.dataset_name = app_config["dataset_name"]
         self._resource_manager_client = ResourceManagerApiAdapter()
         self._big_query_client = BigQueryAdapter(
-            self.project_name,
-            app_config["dataset_location"],
-            self.dataset_name
+            self.project_name, app_config["dataset_location"], self.dataset_name
         )
 
-    def handle_cloud_task(self, task_data):
+    def handle_cloud_task(
+        self, task_data: FetchProjectsTaskData
+    ) -> tuple[dict[str, str], int]:
         """
         Processes a single cloud task by extracting project information,
         fetching project ancestry, and writing the project data to a BigQuery

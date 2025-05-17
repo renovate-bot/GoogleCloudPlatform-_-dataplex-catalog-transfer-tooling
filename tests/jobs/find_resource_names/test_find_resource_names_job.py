@@ -4,6 +4,7 @@ Find resource names job test
 
 import json
 import random
+from typing import Generator
 
 import pytest
 
@@ -21,21 +22,7 @@ class TestFindResourceNames:
     """
 
     @pytest.fixture(scope="class")
-    def basic_config(self):
-        """
-        Provides a basic configuration dictionary for the test environment.
-        """
-        return {
-            "project_name": "hl2-gogl-dapx-t1iylu",
-            "service_location": "us-west1",
-            "handler_name": "test-find-resource-names-job",
-            "queue": "test-find-resource-names",
-            "dataset_location": "US",
-            "dataset_name": "test_find_resource_names_job",
-        }
-
-    @pytest.fixture(scope="class")
-    def full_config(self, basic_config):
+    def full_config(self, basic_config: dict) -> dict:
         """
         Extends the basic configuration with a unique queue name by
         appending a random suffix.
@@ -43,11 +30,12 @@ class TestFindResourceNames:
         suffix = random.randint(1, 1000000)
         basic_config["queue"] += "-" + str(suffix)
         basic_config["dataset_name"] += "_" + str(suffix)
+        basic_config["quota_consumption"] = 20
 
         return basic_config
 
     @pytest.fixture(scope="class", autouse=True)
-    def big_query_client(self, full_config):
+    def big_query_client(self, full_config: dict) -> Generator:
         """
         Sets up a BigQuery client for the test environment and ensures
         cleanup after tests.
@@ -61,7 +49,7 @@ class TestFindResourceNames:
         big_query_client.delete_dataset()
 
     @pytest.fixture(scope="class")
-    def test_data(self):
+    def test_data(self) -> tuple[list[EntryGroup], list[TagTemplate]]:
         """
         Provides test data for the entry groups and tag templates.
         """
@@ -77,7 +65,11 @@ class TestFindResourceNames:
         return entry_groups, tag_templates
 
     @pytest.fixture(scope="class")
-    def setup_bigquery_table(self, big_query_client, test_data):
+    def setup_bigquery_table(
+        self,
+        big_query_client: BigQueryAdapter,
+        test_data: tuple[list[EntryGroup], list[TagTemplate]],
+    ) -> None:
         """
         Sets up a BigQuery table with test data for the 'entry_groups'
         and `tag_templates` tables.
@@ -93,7 +85,7 @@ class TestFindResourceNames:
         )
 
     @pytest.fixture()
-    def cloud_task_client(self, full_config):
+    def cloud_task_client(self, full_config: dict) -> Generator:
         """
         Sets up a Cloud Task client for the test environment and ensures
         cleanup after tests.
@@ -104,16 +96,23 @@ class TestFindResourceNames:
             full_config["queue"],
         )
         yield cloud_task_client
-        cloud_task_client.delete_queue()
+        cloud_task_client.delete_queue(
+            queue_name=full_config["queue"] + "-us-west1"
+        )
+        cloud_task_client.delete_queue(
+            queue_name=full_config["queue"] + "-us-west2"
+        )
 
     @pytest.fixture()
-    def expected_result(self, test_data):
+    def expected_result(
+        self, test_data: tuple[list[EntryGroup], list[TagTemplate]]
+    ) -> list[dict, dict]:
         """
         Generates the expected results for the test based on the
         provided test data.
         """
-        entry_groups, tag_tempates = test_data
-        entities = entry_groups + tag_tempates
+        entry_groups, tag_templates = test_data
+        entities = entry_groups + tag_templates
         results = []
         for entity in entities:
             results.append(
@@ -130,8 +129,12 @@ class TestFindResourceNames:
 
     @pytest.mark.usefixtures("setup_bigquery_table")
     def test_find_resource_names(
-        self, full_config, big_query_client, cloud_task_client, expected_result
-    ):
+        self,
+        full_config: dict,
+        big_query_client: BigQueryAdapter,
+        cloud_task_client: CloudTaskPublisher,
+        expected_result: list[dict, dict],
+    ) -> None:
         """
         Tests the Find Resource Names job functionality.
         """
@@ -149,13 +152,29 @@ class TestFindResourceNames:
         controller.start_transfer()
 
         for resource_name in required_resources:
-            resource_id = (f"{full_config['project_name']}."
-                           f"{full_config['dataset_name']}.{resource_name}")
+            resource_id = (
+                f"{full_config['project_name']}."
+                f"{full_config['dataset_name']}.{resource_name}"
+            )
             assert controller._big_query_client._client.get_table(resource_id)
 
-        assert cloud_task_client.check_queue_exists()
+        assert cloud_task_client.check_queue_exists(
+            queue_name=full_config["queue"] + "-us-west1",
+        )
+        assert cloud_task_client.check_queue_exists(
+            queue_name=full_config["queue"] + "-us-west2",
+        )
 
-        messages = list(cloud_task_client.get_messages())
+        messages = list(
+            cloud_task_client.get_messages(
+                queue_name=full_config["queue"] + "-us-west1",
+            )
+        )
+        messages += list(
+            cloud_task_client.get_messages(
+                queue_name=full_config["queue"] + "-us-west2",
+            )
+        )
         assert len(messages) == len(expected_result)
 
         tasks_data = [json.loads(msg.http_request.body) for msg in messages]

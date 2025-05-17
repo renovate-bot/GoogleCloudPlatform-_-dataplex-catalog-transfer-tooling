@@ -21,3 +21,8 @@ from common.api.data_catalog_api_adapter import DatacatalogApiAdapter
 from common.api.cloud_asset_api_adapter import CloudAssetApiAdapter
 from common.api.resource_manager_api_adapter import ResourceManagerApiAdapter
 from common.api.dataplex_api_adapter import DataplexApiAdapter
+from common.api.cloud_quotas_api_adapter import (
+    QuotaInfoAdapter,
+    Services,
+    Quotas,
+)

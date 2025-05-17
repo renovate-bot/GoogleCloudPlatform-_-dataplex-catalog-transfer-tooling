@@ -18,13 +18,14 @@ related to resource name mapping between Data Catalog and Dataplex.
 """
 
 import asyncio
+from typing import Any
 
 from fastapi import FastAPI, Response
 import uvicorn
 
-from common.entities import FindResourceNamesTaskData
 from config import get_application_config
 from handler import CloudTaskHandler
+from common.entities import ResourceTaskData
 
 
 app = FastAPI()
@@ -34,8 +35,8 @@ handler = CloudTaskHandler(config)
 
 @app.api_route("/", methods=["POST", "PUT"])
 async def process_task(
-    task_data: FindResourceNamesTaskData, response: Response
-):
+    task_data: ResourceTaskData, response: Response
+) -> dict[str, Any]:
     """
     Route to process cloud tasks.
     """

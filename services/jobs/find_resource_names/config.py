@@ -18,11 +18,14 @@ inputs. Utilizes `common.utils` for argument parsing.
 """
 
 from argparse import ArgumentParser
-from typing import Dict, Any
-from common.utils import parse_common_args
+
+from common.utils import parse_common_args, percent
 
 
 def parse_service_args(parser: ArgumentParser) -> None:
+    """
+    Adds service-specific arguments to the argument parser.
+    """
     parser.add_argument(
         "-l",
         "--service-location",
@@ -53,9 +56,19 @@ def parse_service_args(parser: ArgumentParser) -> None:
             "(default: 'find-resource-names-handler')."
         ),
     )
+    parser.add_argument(
+        "-qc",
+        "--quota-consumption",
+        default=20,
+        type=percent,
+        help=(
+            "Percentage of dataplex quota to use"
+            "(default: 20)."
+        ),
+    )
 
 
-def get_application_config() -> Dict[str, Any]:
+def get_application_config() -> dict:
     """
     Combines common and service-specific arguments into a unified configuration.
     """
@@ -78,4 +91,5 @@ def get_application_config() -> Dict[str, Any]:
         "queue": args.queue,
         "handler_name": args.handler_name,
         "dataset_location": args.dataset_location,
+        "quota_consumption": args.quota_consumption,
     }

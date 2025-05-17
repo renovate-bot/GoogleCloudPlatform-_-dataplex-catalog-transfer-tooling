@@ -19,12 +19,13 @@ resources, specifically for managing entry groups and tag templates in a data
 catalog.
 """
 
+from typing import Any
 from fastapi import FastAPI, Response
 import uvicorn
 
 from config import get_application_config
-from common.entities import FetchResourcesTaskData
 from handler import CloudTaskHandler
+from common.entities import FetchResourcesTaskData
 
 
 app = FastAPI()
@@ -33,7 +34,9 @@ handler = CloudTaskHandler(config)
 
 
 @app.api_route("/", methods=["POST", "PUT"])
-async def process_task(task_data: FetchResourcesTaskData, response: Response):
+def process_task(
+    task_data: FetchResourcesTaskData, response: Response
+) -> dict[str, Any]:
     """
     Route to process cloud tasks.
     """

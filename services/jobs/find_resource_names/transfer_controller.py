@@ -21,14 +21,17 @@ Classes:
 - TransferController: A controller class for managing the transfer of tag
   templates and entry groups from the Data Catalog to BigQuery.
 """
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from google.api_core.exceptions import GoogleAPICallError
+from google.cloud.tasks_v2 import Task
 
+from common.api import QuotaInfoAdapter, Services, Quotas
 from common.big_query import BigQueryAdapter, ViewNames, TableNames
 from common.cloud_task import CloudTaskPublisher
 from common.api.resource_manager_api_adapter import ResourceManagerApiAdapter
-from common.entities import EntryGroup, TagTemplate, FindResourceNamesTaskData
+from common.entities import EntryGroup, TagTemplate, ResourceTaskData
 from common.utils import get_logger
 
 
@@ -40,7 +43,7 @@ class TransferController:
     and writes them to BigQuery tables.
     """
 
-    def __init__(self, app_config: dict):
+    def __init__(self, app_config: dict) -> None:
         """
         Initializes the TransferController with the specified project.
         """
@@ -49,6 +52,9 @@ class TransferController:
         self.handler_name = app_config["handler_name"]
         self.queue = app_config["queue"]
         self.dataset_name = app_config["dataset_name"]
+        self.quota_consumption = app_config["quota_consumption"]
+        self._quota_client = QuotaInfoAdapter()
+        self.default_dataplex_quota = self._get_default_dataplex_quota()
         self._resource_manager_client = ResourceManagerApiAdapter()
         self._big_query_client = BigQueryAdapter(
             self.project,
@@ -60,7 +66,31 @@ class TransferController:
         )
         self._logger = get_logger()
 
-    def start_transfer(self):
+    def _get_default_dataplex_quota(self) -> int:
+        """
+        Retrieves the default Dataplex quota for the project.
+        """
+        dataplex_quota_per_min = (
+                self._quota_client.get_default_quota_value(
+                    self.project,
+                    Services.DATAPLEX,
+                    Quotas.CATALOG_MANAGEMENT_READS,
+                )
+            )
+        dataplex_quota_per_min_per_user = (
+            self._quota_client.get_default_quota_value(
+                self.project,
+                Services.DATAPLEX,
+                Quotas.CATALOG_MANAGEMENT_PER_USER_READS,
+            )
+        )
+
+        dataplex_quota = min(
+            dataplex_quota_per_min, dataplex_quota_per_min_per_user
+        )
+        return dataplex_quota
+
+    def start_transfer(self) -> None:
         """
         Initiates the data transfer process by fetching resources
         from tables and creating tasks
@@ -69,12 +99,12 @@ class TransferController:
 
         entry_groups, tag_templates = self.fetch_resources()
 
-        self._logger.info(f"fetched {len(entry_groups)} entry groups")
-        self._logger.info(f"fetched {len(tag_templates)} tag templates")
+        self._logger.info("Fetched %d entry groups", len(entry_groups))
+        self._logger.info("Fetched %d tag templates", len(tag_templates))
 
         self.create_cloud_tasks(entry_groups + tag_templates)
 
-    def _setup_tables_and_views(self):
+    def _setup_tables_and_views(self) -> None:
         """
         Ensures that all required BigQuery tables and views are set up for the
         data transfer process. If any of the required tables or views do not
@@ -111,65 +141,91 @@ class TransferController:
     def create_cloud_tasks(
         self,
         resources: list[EntryGroup | TagTemplate],
-    ):
+    ) -> None:
         """
         Create cloud tasks for further processing
         """
-        if not self._cloud_task_client.check_queue_exists():
-            self._cloud_task_client.create_queue()
+        locations = set(map(lambda x: x.location, resources))
+        self._cloud_task_client.prepare_queues_for_locations(
+            locations, self.default_dataplex_quota, self.quota_consumption
+        )
 
         tasks = []
-        results = []
+        error_counter = 0
 
-        for resource in resources:
-            payload_data = {
-                "resource_type": type(resource).__name__,
-                "resource": {
-                    "resource_name": resource.id,
-                    "location": resource.location,
-                    "project_id": resource.project_id,
-                },
-            }
+        def process_futures(futures: list) -> None:
+            """
+            Handle errors for a list of futures.
+            """
+            nonlocal error_counter
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    if isinstance(result, Exception):
+                        raise result
+                except Exception as exc:
+                    error_counter += 1
+                    self._logger.error(exc)
 
-            payload = FindResourceNamesTaskData(**payload_data).model_dump(
-                mode="json"
-            )
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            chunk_size = 10_000
+            cur_chunk_size = 0
 
-            with ThreadPoolExecutor(max_workers=100) as executor:
-                tasks.append(executor.submit(
-                    self.create_cloud_task,
-                    payload,
-                    self.handler_name,
-                    self.project,
-                    self.location,
-                ))
-                for future in as_completed(tasks):
-                    try:
-                        results.append(future.result())
-                    except Exception as exc:
-                        results.append(exc)
+            for resource in resources:
+                payload = ResourceTaskData(
+                    **{
+                        "resource_type": type(resource).__name__,
+                        "resource": {
+                            "resource_name": resource.id,
+                            "location": resource.location,
+                            "project_id": resource.project_id,
+                        },
+                    }
+                ).model_dump(mode="json")
 
-        errors = list(filter(lambda t: isinstance(t, Exception), results))
+                tasks.append(
+                    executor.submit(
+                        self.create_cloud_task,
+                        payload,
+                        self.handler_name,
+                        self.project,
+                        self.location,
+                        resource.location,
+                    )
+                )
 
-        if len(errors) == 0:
+                cur_chunk_size += 1
+
+                if cur_chunk_size == chunk_size:
+                    cur_chunk_size = 0
+                    process_futures(tasks)
+                    tasks = []
+
+            if tasks:
+                process_futures(tasks)
+
+        if error_counter == 0:
             self._logger.info("All tasks created")
         else:
-            self._logger.info(f"{len(errors)} errors occurred"
-                              f" during tasks creation")
+            self._logger.error(
+                "%d errors occurred during tasks creation", error_counter
+            )
 
     def create_cloud_task(
         self,
         payload: dict,
         handler_name: str,
         project: str,
-        location: str
-    ):
+        location: str,
+        msg_location: str,
+    ) -> Task | GoogleAPICallError:
+        """
+        Creates a single Cloud Task with the specified payload and
+        configuration.
+        """
         try:
-            return self._cloud_task_client.create_task(
-                payload,
-                handler_name,
-                project,
-                location
+            return self._cloud_task_client.create_task_by_message_location(
+                payload, handler_name, msg_location, project, location
             )
         except GoogleAPICallError as e:
             return e

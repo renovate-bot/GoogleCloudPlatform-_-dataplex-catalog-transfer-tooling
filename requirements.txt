@@ -29,6 +29,7 @@ google-cloud-dataplex==2.8.0
 google-cloud-logging==3.11.4
 google-cloud-org-policy==1.13.0
 google-cloud-os-config==1.20.0
+google-cloud-quotas==0.1.17
 google-cloud-resource-manager==1.14.1
 google-cloud-tasks==2.18.0
 google-crc32c==1.6.0
@@ -59,6 +60,8 @@ pydantic==2.10.6
 pydantic_core==2.27.2
 pylint==3.3.4
 pyparsing==3.2.1
+pytest==8.3.5
+pytest-env==1.1.5
 python-dateutil==2.9.0.post0
 requests==2.32.3
 rsa==4.9

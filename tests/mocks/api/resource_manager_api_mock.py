@@ -69,6 +69,9 @@ class ResourceManagerApiMock:
         return result
 
     def getAncestry(self, projectId):
+        """
+        Retrieve the ancestry hierarchy of a project by its ID.
+        """
         if projectId not in self._projects:
             return self
 

@@ -13,21 +13,22 @@
 # limitations under the License.
 
 """
-This module provides an adapter for interacting with the 
+This module provides an adapter for interacting with the
 Google Cloud Data Catalog API.
 It includes functionality for searching and retrieving tag templates
 and entry groups.
 
 Classes:
-- DatacatalogApiAdapter: An adapter class for interacting with the 
+- DatacatalogApiAdapter: An adapter class for interacting with the
   Data Catalog API.
 """
 
-
 from functools import cache
+
 from google.cloud import resourcemanager
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
+
 from common.utils import get_logger
 from common.exceptions import FormatException
 from common.entities import Project
@@ -38,7 +39,7 @@ class ResourceManagerApiAdapter:
     An adapter class for interacting with the Google Cloud Asset API.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the ResourceManagerApiAdapter with a ResourceManager client.
         """
@@ -48,16 +49,22 @@ class ResourceManagerApiAdapter:
 
     @cache
     def get_project_number(self, project_id: str) -> str:
+        """
+        Retrieves the project number for a given project ID.
+        """
         project = self._project_client.get_project(
             name=f"projects/{project_id}"
         )
 
-        return self._project_client.parse_common_project_path(
-            project.name
-        )["project"]
+        return self._project_client.parse_common_project_path(project.name)[
+            "project"
+        ]
 
     @cache
     def get_organization_number(self, project_id: str) -> str:
+        """
+        Retrieves the organization number for a given project ID.
+        """
         ancestry = self.get_project_ancestry(project_id)
 
         for ancestry_type, resource_id in ancestry:
@@ -67,6 +74,10 @@ class ResourceManagerApiAdapter:
     def get_project_ancestry(
         self, project_id: str
     ) -> list[tuple[Project.AncestryType, str]]:
+        """
+        Retrieves the ancestry of a Google Cloud project, including its
+        parent folders and organization.
+        """
         try:
             response = (
                 self._plain_api_client.projects()
@@ -75,19 +86,17 @@ class ResourceManagerApiAdapter:
             )
         except HttpError as e:
             if e.status_code == 403:
-                error_msg = (f"Not enough permissions for project {project_id}"
-                             f" or project does not exists")
+                error_msg = (
+                    f"Not enough permissions for project {project_id}"
+                    f" or project does not exists"
+                )
                 raise HttpError(
-                    e.resp,
-                    error_msg.encode("utf-8"),
-                    uri=e.uri
+                    e.resp, error_msg.encode("utf-8"), uri=e.uri
                 ) from e
             elif e.status_code == 400:
                 error_msg = f"Incorrect project name: {project_id}"
                 raise HttpError(
-                    e.resp,
-                    error_msg.encode("utf-8"),
-                    uri=e.uri
+                    e.resp, error_msg.encode("utf-8"), uri=e.uri
                 ) from e
 
             raise e

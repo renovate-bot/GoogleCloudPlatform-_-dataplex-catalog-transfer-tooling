@@ -30,7 +30,7 @@ from transfer_controller import TransferController
 from config import get_application_config
 
 
-def main(app_config: dict):
+def main(app_config: dict) -> None:
     """
     Starts the cloud task consumer server and initiates the data transfer
     process.

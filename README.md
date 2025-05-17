@@ -21,6 +21,9 @@ You can analyze the consequences of permanently transferring resources to the ne
 
 You will also receive a mapping table showing the relation between Data Catalog and Dataplex Catalog resource names that you can use for comparison.
 
+## Transfer at scale
+You can convert between private and public tag templates and initiate transfer of all resources at scale.
+
 # Setup
 1) Create a new Google Cloud project inside your organization's account.
 2) Create a Service Account in the project.
@@ -31,13 +34,18 @@ You will also receive a mapping table showing the relation between Data Catalog 
    * roles/cloudtasks.admin
    * roles/cloudtasks.enqueuer
    * roles/datacatalog.searchAdmin
+   * roles/datacatalog.tagTemplateOwner
+   * roles/datacatalog.entryGroupOwner
    * roles/serviceusage.serviceUsageConsumer
-   * roles/dataplex.catalogAdmin
+   * roles/dataplex.aspectTypeOwner
+   * roles/dataplex.entryGroupOwner
    * roles/logging.configWriter
    * roles/iam.securityReviewer
    * roles/run.invoker
    * roles/bigquery.jobUser
    * roles/iam.serviceAccountUser
+   * roles/cloudquotas.viewer
+   * roles/bigquery.jobUser
 4) Enable API:
    * Cloud Resource Manager API
    * BigQuery API
@@ -48,6 +56,7 @@ You will also receive a mapping table showing the relation between Data Catalog 
    * Cloud Asset API
    * Dataplex API
    * Data Catalog API
+   * Cloud Quotas API
 5) Create a Docker repository in Google Artifact Registry
 6) [Opt in public tag templates and tags for simultaneous availability of metadata in universal catalog](https://cloud.google.com/dataplex/docs/transition-to-dataplex-catalog#opt-in)
 
@@ -67,6 +76,10 @@ You will also receive a mapping table showing the relation between Data Catalog 
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest -f ./services/handlers/fetch_policies/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest -f ./services/jobs/fetch_policies/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/audit-logs-job:latest -f ./services/jobs/audit_logs/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-handler:latest -f ./services/handlers/transfer_resources/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest -f ./services/jobs/transfer_resources/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest -f ./services/handlers/convert_private_tag_templates/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest -f ./services/jobs/convert_private_tag_templates/Dockerfile .
     ```
     Where
    * work_project_id - ID of the project you've created for this tool
@@ -83,6 +96,10 @@ docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/audit-logs-job:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-handler:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest
 ```
 # Deploy
 When you will set up container commands, be sure to input it separately (as at the picture below)
@@ -96,30 +113,45 @@ container arguments
 ## fetch-resources-job
 1) Create Cloud Run job
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-job:latest``` image
-3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 4) In Security section select the Service Account you've created
 ## find-resource-names-job
 1) Create Cloud Run job
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-job:latest``` image
-3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 4) In Security section select the Service Account you've created
 ## fetch-policies-job
 1) Create Cloud Run job
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest``` image
-3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
-4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}``` or ```folder/{folderId}```
-5) You can set up resource type using ```-rt entry_group|tag_template|both``` flag 
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
+5) You can set up resource type using ```-rt entry_group|tag_template|both``` flag
 6) You can set up system where to fetch policies by using ```-ms data_catalog|dataplex|both``` flag
 7) In Security section select the Service Account you've created
 ## audit-logs-job
 1) Create Cloud Run job
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/audit-logs-job:latest``` image
-3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 4) In Security section select the Service Account you've created
+## convert-private-tag-templates-job
+1) Create Cloud Run job
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest``` image
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
+container arguments
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
+5) In Security section select the Service Account you've created
+## transfer-resources-job
+1) Create Cloud Run job
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest``` image
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
+container arguments
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
+5) You can set up resource type using ```-rt entry_group|tag_template|both``` flag
+6) In Security section select the Service Account you've created
 ## fetch-projects-handler
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest``` image
@@ -144,7 +176,7 @@ container arguments
 3) Service name ```find-resource-names-handler``` (Cloud tasks will target this name)
 4) location ```us-central1```
 5) Authentication - Require authentication
-6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 7) In Security section select the Service Account you've created
 ## fetch-policies-handler
@@ -153,14 +185,37 @@ container arguments
 3) Service name ```fetch-policies-handler``` (Cloud tasks will target this name)
 4) location ```us-central1```
 5) Authentication - Require authentication
-6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
+container arguments
+7) In Security section select the Service Account you've created
+## convert-private-tag-templates-handler
+1) Create Cloud Run service
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest``` image
+3) Service name ```convert-private-tag-templates-handler``` (Cloud tasks will target this name)
+4) location ```us-central1```
+5) Authentication - Require authentication
+6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
+container arguments
+7) In Security section select the Service Account you've created
+## transfer-resources-handler
+1) Create Cloud Run service
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-handler:latest``` image
+3) Service name ```transfer-resources-handler``` (Cloud tasks will target this name)
+4) location ```us-central1```
+5) Authentication - Require authentication
+6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 7) In Security section select the Service Account you've created
 
-# Launch
+# Gather data
 1) Launch fetch-projects-job
 2) After finishing launch fetch-resources-job
 3) After finishing launch find-resource-names-job
 4) After finishing launch fetch-policies-job
-5) To see DataCatalog access logs launch audit-logs-job and follow the instructions in [setup-logs-readme](services/jobs/audit_logs/README.md)
+5) To see Data Catalog access logs launch audit-logs-job and follow the instructions in [setup-logs-readme](services/jobs/audit_logs/README.md)
 6) All data will appear in ```transfer_tooling``` dataset in Google BigQuery
+
+# Transfer
+1) [Optional] Adjust scope parameter of ```convert-private-tag-templates-job``` and run it to convert all private tag templates within given scope to public tag templates
+2) Wait 24h
+3) Adjust both scope and resource type parameter of ```convert-private-tag-templates-job``` and run it to transfer resources to Dataplex Catalog

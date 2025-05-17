@@ -19,13 +19,14 @@ Find Resource names handler tests
 import random
 from datetime import date
 from unittest.mock import MagicMock
+from typing import Generator
 
 import pytest
 from google.cloud.dataplex_v1.types import catalog
 
 from common.big_query import BigQueryAdapter, TableNames, ViewNames
 from common.entities import (
-    FindResourceNamesTaskData,
+    ResourceTaskData,
     ResourceData,
     EntryGroup,
     TagTemplate,
@@ -38,20 +39,8 @@ class TestFindResourceNamesHandler:
     Tests for the CloudTaskHandler class.
     """
 
-    @pytest.fixture(scope="class")
-    def basic_config(self):
-        """
-        Provides a basic configuration dictionary for the test environment.
-        """
-        return {
-            "project_name": "hl2-gogl-dapx-t1iylu",
-            "dataset_name": "test_find_resource_names",
-            "service_location": "us-central1",
-            "dataset_location": "US",
-        }
-
     @pytest.fixture(scope="function")
-    def full_config(self, basic_config):
+    def full_config(self, basic_config: dict) -> dict:
         """
         Extends the basic configuration with a unique queue name by
         appending a random suffix.
@@ -62,28 +51,33 @@ class TestFindResourceNamesHandler:
         return basic_config
 
     @pytest.fixture
-    def mock_dataplex_client(self):
+    def mock_dataplex_client(self) -> MagicMock:
         """
         Provides a mock for the DatacatalogApiAdapter.
         """
         return MagicMock()
 
     @pytest.fixture(scope="class")
-    def test_data_eg(self):
+    def test_data_eg(self) -> EntryGroup:
         """
         Provides test data for the entry groups.
         """
         return EntryGroup("project1", "us-west1", "eg1", False)
 
     @pytest.fixture(scope="class")
-    def test_data_tt(self):
+    def test_data_tt(self) -> TagTemplate:
         """
         Provides test data for the tag templates.
         """
         return TagTemplate("project1", "us-west1", "tt1", True, False)
 
     @pytest.fixture(scope="function")
-    def big_query_client(self, full_config, test_data_eg, test_data_tt):
+    def big_query_client(
+        self,
+        full_config: dict,
+        test_data_eg: EntryGroup,
+        test_data_tt: TagTemplate,
+    ) -> Generator:
         """
         Sets up a BigQuery client for the test environment and ensures
         cleanup after tests.
@@ -133,7 +127,12 @@ class TestFindResourceNamesHandler:
         big_query_client.delete_dataset()
 
     @pytest.fixture(scope="function")
-    def handler(self, full_config, big_query_client, mock_dataplex_client):
+    def handler(
+        self,
+        full_config: dict,
+        big_query_client: BigQueryAdapter,
+        mock_dataplex_client: MagicMock,
+    ) -> CloudTaskHandler:
         """
         Provides an instance of CloudTaskHandler with mocked dependencies.
         """
@@ -142,11 +141,13 @@ class TestFindResourceNamesHandler:
         handler._big_query_client = big_query_client
         return handler
 
-    def generate_task_data(self, entity):
+    def generate_task_data(
+        self, entity: EntryGroup | TagTemplate
+    ) -> ResourceTaskData:
         """
         Generates task data for a given entity.
         """
-        return FindResourceNamesTaskData(
+        return ResourceTaskData(
             resource_type=type(entity).__name__,
             resource=ResourceData(
                 project_id=entity.project_id,
@@ -155,7 +156,9 @@ class TestFindResourceNamesHandler:
             ),
         )
 
-    def test_handle_cloud_task_entry_group(self, handler, test_data_eg):
+    def test_handle_cloud_task_entry_group(
+        self, handler: CloudTaskHandler, test_data_eg: EntryGroup
+    ) -> None:
         """
         Test handling a cloud task for an entry group.
         """
@@ -212,8 +215,8 @@ class TestFindResourceNamesHandler:
         assert view_row.createdAt == date.fromisoformat("2025-01-01")
 
     def test_handle_cloud_task_entry_group_with_new_name(
-        self, handler, test_data_eg
-    ):
+        self, handler: CloudTaskHandler, test_data_eg: EntryGroup
+    ) -> None:
         """
         Test handling a cloud task for an entry group with a new name.
         """
@@ -271,8 +274,8 @@ class TestFindResourceNamesHandler:
         assert view_row.createdAt == date.fromisoformat("2025-01-01")
 
     def test_handle_cloud_task_entry_group_not_found(
-        self, handler, test_data_eg
-    ):
+        self, handler: CloudTaskHandler, test_data_eg: EntryGroup
+    ) -> None:
         """
         Test handling a cloud task for an entry group that is not found.
         """
@@ -317,7 +320,9 @@ class TestFindResourceNamesHandler:
         assert view_row.managingSystem == test_data_eg.managing_system
         assert view_row.createdAt == date.fromisoformat("2025-01-01")
 
-    def test_handle_cloud_task_tag_template(self, handler, test_data_tt):
+    def test_handle_cloud_task_tag_template(
+        self, handler: CloudTaskHandler, test_data_tt: TagTemplate
+    ) -> None:
         """
         Test handling a cloud task for a tag template.
         """
@@ -372,8 +377,8 @@ class TestFindResourceNamesHandler:
         assert view_row.createdAt == date.fromisoformat("2025-01-01")
 
     def test_handle_cloud_task_tag_template_with_new_name(
-        self, handler, test_data_tt
-    ):
+        self, handler: CloudTaskHandler, test_data_tt: TagTemplate
+    ) -> None:
         """
         Test handling a cloud task for a tag template with a new name.
         """
@@ -432,8 +437,8 @@ class TestFindResourceNamesHandler:
         assert view_row.createdAt == date.fromisoformat("2025-01-01")
 
     def test_handle_cloud_task_tag_template_not_found(
-        self, handler, test_data_tt
-    ):
+        self, handler: CloudTaskHandler, test_data_tt: TagTemplate
+    ) -> None:
         """
         Test handling a cloud task for a tag template that is not found.
         """

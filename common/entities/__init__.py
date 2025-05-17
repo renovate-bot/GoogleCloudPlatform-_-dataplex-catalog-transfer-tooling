@@ -27,10 +27,11 @@ from common.entities.entities import (
     ManagingSystem,
 )
 from common.entities.request_models import (
-    FindResourceNamesTaskData,
+    ResourceTaskData,
     FetchResourcesTaskData,
     FetchProjectsTaskData,
     FetchPoliciesTaskData,
     ResourceData,
     ExtendedResourceData,
+    ConvertPrivateTagTemplatesTaskData,
 )

@@ -28,6 +28,7 @@ from google.cloud import asset
 from google.cloud.asset_v1.services.asset_service.pagers import (
     SearchAllResourcesPager,
 )
+
 from common.entities import Project
 
 
@@ -36,7 +37,7 @@ class CloudAssetApiAdapter:
     An adapter class for interacting with the Google Cloud Asset API.
     """
 
-    def __init__(self, organization: int):
+    def __init__(self, organization: str) -> None:
         """
         Initializes the AssetApiAdapter with a AssetService client.
         """
@@ -69,5 +70,7 @@ class CloudAssetApiAdapter:
                 scope=scope, asset_types=asset_types, query=query
             )
         except PermissionDenied as e:
-            raise PermissionDenied(f"Not enough permissions for scope {scope} "
-                                   f"or scope doesn't exists") from e
+            raise PermissionDenied(
+                f"Not enough permissions for scope {scope} "
+                f"or scope doesn't exists"
+            ) from e

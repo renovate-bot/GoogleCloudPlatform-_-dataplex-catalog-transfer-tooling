@@ -17,9 +17,11 @@ Fetch Projects job tests
 """
 
 import json
+import random
+from typing import Generator
 
 import pytest
-import random
+
 from services.jobs.fetch_projects.transfer_controller import TransferController
 from tests.mocks.api.cloud_asset_api_mock import CloudAssetApiMock
 from common.cloud_task import CloudTaskPublisher
@@ -29,35 +31,38 @@ class TestFetchProjectsJob:
     """
     Fetch Projects job tests
     """
-    @pytest.fixture(scope='class')
-    def basic_config(self):
-        return {
-            "project_name": "hl2-gogl-dapx-t1iylu",
-            "service_location": "us-west1",
-            "handler_name": "dummy",
-            "queue": "test-fetch-projects",
-            "dataset_location": "us-west1",
-            "dataset_name": "test-fetch-projects"
-        }
 
-    @pytest.fixture()
-    def full_config(self, basic_config):
+    @pytest.fixture(scope="class")
+    def full_config(self, basic_config: dict) -> dict:
+        """
+        Provides a full configuration dictionary with unique suffixes for
+        queue name.
+        """
         suffix = random.randint(1, 1000000)
         basic_config["queue"] += "-" + str(suffix)
 
         return basic_config
 
     @pytest.fixture()
-    def cloud_task_client(self, full_config):
+    def cloud_task_client(self, full_config: dict) -> Generator:
+        """
+        Sets up a BigQuery client for the test environment and ensures cleanup
+        after tests.
+        """
         cloud_task_client = CloudTaskPublisher(
             full_config["project_name"],
             full_config["service_location"],
-            full_config["queue"]
+            full_config["queue"],
         )
         yield cloud_task_client
         cloud_task_client.delete_queue()
 
-    def test_fetch_projects_job(self, full_config, cloud_task_client):
+    def test_fetch_projects_job(
+        self, full_config: dict, cloud_task_client: CloudTaskPublisher
+    ) -> None:
+        """
+        Tests the Fetch Projects job's ability to fetch data and publish tasks.
+        """
         controller = TransferController(full_config)
         cloud_asset_mock_client = CloudAssetApiMock()
         controller._cloud_asset_api_client = cloud_asset_mock_client
@@ -69,23 +74,13 @@ class TestFetchProjectsJob:
         messages = list(cloud_task_client.get_messages())
         assert len(messages) == 4
 
-        tasks_data = [
-            json.loads(msg.http_request.body)
-            for msg
-            in messages
-        ]
+        tasks_data = [json.loads(msg.http_request.body) for msg in messages]
 
         test_names = {
-            prj.project_id
-            for prj
-            in cloud_asset_mock_client.fetch_projects()
+            prj.project_id for prj in cloud_asset_mock_client.fetch_projects()
         }
 
-        real_names = {
-            msg["project_id"]
-            for msg
-            in tasks_data
-        }
+        real_names = {msg["project_id"] for msg in tasks_data}
 
         assert test_names == real_names
 

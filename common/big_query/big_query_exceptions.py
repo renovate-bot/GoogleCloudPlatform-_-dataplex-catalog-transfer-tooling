@@ -19,8 +19,9 @@ translating them into more specific BigQuery exceptions.
 """
 
 from functools import wraps
-from google.api_core.exceptions import GoogleAPICallError
 import concurrent.futures
+
+from google.api_core.exceptions import GoogleAPICallError
 
 
 class BigQuerySchemaNotFoundError(Exception):
@@ -28,6 +29,7 @@ class BigQuerySchemaNotFoundError(Exception):
     Exception raised when the expected schema is not found in BigQuery.
     This can occur if the schema is missing or incorrectly defined.
     """
+
 
 class BigQueryViewSQLNotFoundError(Exception):
     """

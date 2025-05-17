@@ -22,12 +22,12 @@ import json
 import os
 import time
 from functools import cache
+from typing import Iterable
+from math import ceil
 
 import google.auth.transport.requests
-import google.oauth2.id_token
-import google.oauth2.service_account
 import google.cloud.tasks_v2 as tasks
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import NotFound, AlreadyExists
 from google.cloud.tasks_v2 import Queue, RateLimits
 from google.cloud.tasks_v2.services.cloud_tasks.pagers import ListTasksPager
 from google.cloud.tasks_v2.types import OidcToken
@@ -47,8 +47,8 @@ class CloudTaskPublisher(object):
         location: str,
         queue: str,
         max_rps: int = 60,
-        wait_after_queue_creation: int = 60
-    ):
+        wait_after_queue_creation: int = 60,
+    ) -> None:
         """
         Initializes the CloudTaskPublisher with the necessary configuration.
         """
@@ -59,13 +59,17 @@ class CloudTaskPublisher(object):
         self._wait_after_queue_creation = wait_after_queue_creation
         self._cloud_task_client = tasks.CloudTasksClient()
         self._resource_manager_client = ResourceManagerApiAdapter()
-        self._queue_fqn = self._cloud_task_client.queue_path(
+        self._queue_fqn = self.get_queue_fqn(
             self.project, self.location, self.queue_name
         )
         self._logger = get_logger()
 
     @cache
-    def _get_service_account_email(self):
+    def _get_service_account_email(self) -> str:
+        """
+        Retrieves the service account email associated with the
+        current Google Cloud credentials.
+        """
         credentials, _ = google.auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
@@ -77,18 +81,28 @@ class CloudTaskPublisher(object):
         else:
             return credentials.service_account_email
 
+    def get_queue_fqn(
+        self, project: str, location: str, queue_name: str
+    ) -> str:
+        """
+        Constructs the fully qualified name (FQN) of the queue.
+        """
+        return self._cloud_task_client.queue_path(project, location, queue_name)
+
     def create_task(
         self,
         json_payload: dict | list,
         service_name: str,
         project: str = None,
         location: str = None,
+        queue_name: str = None,
     ) -> tasks.Task:
         """
         Creates a task with a JSON payload and adds it to the specified queue.
         """
         project = project or self.project
         location = location or self.location
+        queue_name = queue_name or self.queue_name
 
         url = self._form_service_url(service_name, project, location)
 
@@ -107,59 +121,136 @@ class CloudTaskPublisher(object):
         )
 
         task = tasks.Task({"http_request": http_request})
+        queue_fqn = self._cloud_task_client.queue_path(
+            project, location, queue_name
+        )
 
         create_request = tasks.CreateTaskRequest(
             {
-                "parent": self._queue_fqn,
+                "parent": queue_fqn,
                 "task": task,
             }
         )
 
+        if not self.check_queue_exists(project, location, queue_name):
+            self._logger.info(
+                "Queue %s does not exist. "
+                "Queue will be created automatically.",
+                queue_fqn,
+            )
+            self.create_queue(project, location, queue_name)
+
         try:
             task = self._cloud_task_client.create_task(create_request)
             self._logger.info(
-                f"Created task. "
-                f"Endpoint: {url}, "
-                f"payload: {json.dumps(json_payload)}"
+                "Created task. Endpoint: %s, payload: %s",
+                url,
+                json.dumps(json_payload),
             )
         except NotFound as e:
-            self._logger.info(f"Queue {self._queue_fqn} does not exist")
+            self._logger.info("Queue %s does not exist", self._queue_fqn)
             raise e
 
         return task
 
-    def create_queue(self) -> Queue:
+    def create_task_by_message_location(
+        self,
+        json_payload: dict | list,
+        service_name: str,
+        message_location: str,
+        project: str = None,
+        location: str = None,
+    ) -> tasks.Task:
+        queue_name = self.queue_name + "-" + message_location
+
+        return self.create_task(
+            json_payload, service_name, project, location, queue_name
+        )
+
+    def create_queue(
+        self,
+        project: str = None,
+        location: str = None,
+        queue_name: str = None,
+        max_rps: int = None,
+    ) -> Queue:
         """
         Creates a queue with Google Cloud Queues.
         """
-        parent = f"projects/{self.project}/locations/{self.location}"
+        project = project or self.project
+        location = location or self.location
+        queue_name = queue_name or self.queue_name
+        max_rps = max_rps or self.max_rps
+
+        queue_fqn = self.get_queue_fqn(project, location, queue_name)
+        parent = f"projects/{project}/locations/{location}"
+
         rate_limits = RateLimits(
             {
-                "max_dispatches_per_second": self.max_rps,
+                "max_dispatches_per_second": max_rps,
             }
         )
-        queue = Queue({"name": self._queue_fqn, "rate_limits": rate_limits})
-        result = self._cloud_task_client.create_queue(
-            request={"parent": parent, "queue": queue}
-        )
-        time.sleep(self._wait_after_queue_creation)
+        queue = Queue({"name": queue_fqn, "rate_limits": rate_limits})
 
-        self._logger.info(f"Created queue: {self._queue_fqn}")
+        try:
+            result = self._cloud_task_client.create_queue(
+                request={"parent": parent, "queue": queue}
+            )
+            time.sleep(self._wait_after_queue_creation)
+            self._logger.info("Created queue: %s", queue_fqn)
+        except AlreadyExists:
+            result = self._cloud_task_client.get_queue(name=queue_fqn)
 
         return result
 
-    def check_queue_exists(self) -> bool:
+    def update_queue(
+        self,
+        project: str = None,
+        location: str = None,
+        queue_name: str = None,
+        max_rps: int = None,
+    ):
+        """
+        Updates a queue.
+        """
+        project = project or self.project
+        location = location or self.location
+        queue_name = queue_name or self.queue_name
+        max_rps = max_rps or self.max_rps
+
+        queue_fqn = self.get_queue_fqn(project, location, queue_name)
+
+        rate_limits = RateLimits(
+            {
+                "max_dispatches_per_second": max_rps,
+            }
+        )
+        queue = Queue({"name": queue_fqn, "rate_limits": rate_limits})
+
+        result = self._cloud_task_client.update_queue(queue=queue)
+        self._logger.info("Updated queue: %s", queue_fqn)
+
+        return result
+
+    def check_queue_exists(
+        self,
+        project: str = None,
+        location: str = None,
+        queue_name: str = None,
+    ) -> bool:
         """
         Checks if a queue exists.
         """
+        project = project or self.project
+        location = location or self.location
+        queue_name = queue_name or self.queue_name
+
+        queue_fqn = self.get_queue_fqn(project, location, queue_name)
+
         try:
-            self._cloud_task_client.get_queue(name=self._queue_fqn)
+            self._cloud_task_client.get_queue(name=queue_fqn)
             return True
         except NotFound:
-            self._logger.info(
-                f"Queue {self._queue_fqn} does not exist. "
-                f"Queue will be created automatically."
-            )
             return False
 
     def _form_service_url(
@@ -172,27 +263,81 @@ class CloudTaskPublisher(object):
 
         return f"https://{service_name}-{project_number}.{location}.run.app"
 
-    def _get_project_number(self, project) -> str:
+    def _get_project_number(self, project: str) -> str:
         """
         Get the project number using project_id.
         """
         return self._resource_manager_client.get_project_number(project)
 
-    def delete_queue(self):
-        self._logger.info(f"Deleting queue: {self._queue_fqn}")
-        self._cloud_task_client.delete_queue(name=self._queue_fqn)
-        self._logger.info(f"Deleted queue: {self._queue_fqn}")
+    def delete_queue(
+        self,
+        project: str = None,
+        location: str = None,
+        queue_name: str = None,
+    ) -> None:
+        """
+        Deletes the queue.
+        """
+        project = project or self.project
+        location = location or self.location
+        queue_name = queue_name or self.queue_name
 
-    def purge_queue(self):
-        self._logger.info(f"Purging queue: {self._queue_fqn}")
-        self._cloud_task_client.purge_queue(name=self._queue_fqn)
-        self._logger.info(f"Purged queue: {self._queue_fqn}")
+        queue_fqn = self.get_queue_fqn(project, location, queue_name)
 
+        self._logger.info("Deleting queue: %s", queue_fqn)
+        self._cloud_task_client.delete_queue(name=queue_fqn)
+        self._logger.info("Deleted queue: %s", queue_fqn)
 
-    def get_messages(self) -> ListTasksPager:
+    def purge_queue(
+        self,
+        project: str = None,
+        location: str = None,
+        queue_name: str = None,
+    ) -> None:
+        """
+        Purges the queue.
+        """
+        project = project or self.project
+        location = location or self.location
+        queue_name = queue_name or self.queue_name
+
+        queue_fqn = self.get_queue_fqn(project, location, queue_name)
+
+        self._logger.info("Purging queue: %s", queue_fqn)
+        self._cloud_task_client.purge_queue(name=queue_fqn)
+        self._logger.info("Purged queue: %s", queue_fqn)
+
+    def get_messages(
+        self,
+        project: str = None,
+        location: str = None,
+        queue_name: str = None,
+    ) -> ListTasksPager:
+        """
+        Get messages from the queue.
+        """
+        project = project or self.project
+        location = location or self.location
+        queue_name = queue_name or self.queue_name
+
+        queue_fqn = self.get_queue_fqn(project, location, queue_name)
+
         return self._cloud_task_client.list_tasks(
-            request={
-                "parent": self._queue_fqn,
-                "response_view": 2
-            }
+            request={"parent": queue_fqn, "response_view": 2}
         )
+
+    def prepare_queues_for_locations(
+        self, msg_locations: Iterable[str], quota: int, quota_consumption: int
+    ) -> None:
+        """
+        Creates queues for the specified message locations.
+        """
+        for msg_location in msg_locations:
+            new_queue_name = self.queue_name + "-" + msg_location
+            if self.check_queue_exists(queue_name=new_queue_name):
+                self.purge_queue(queue_name=new_queue_name)
+            else:
+                self.create_queue(
+                    queue_name=new_queue_name,
+                    max_rps=ceil(quota * (quota_consumption / 100)),
+                )
