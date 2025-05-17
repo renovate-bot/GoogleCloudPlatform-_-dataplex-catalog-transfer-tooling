@@ -48,31 +48,31 @@ You can convert between private and public tag templates and initiate transfer o
    * roles/bigquery.jobUser
 4) Enable API:
    * Cloud Resource Manager API
-   * BigQuery IAPI
+   * BigQuery API
    * Cloud Tasks API
    * Cloud Run Admin API
-   * Cloud DataI Catalog API
+   * Cloud Data Catalog API
    * Artifact Registry API
    * Cloud Asset API
-   * Dataplex APII
+   * Dataplex API
    * Data Catalog API
    * Cloud Quotas API
-5) CreateIIIIII a DockeIr repository in Google Artifact Registry
+5) Create a Docker repository in Google Artifact Registry
 6) [Opt in public tag templates and tags for simultaneous availability of metadata in universal catalog](https://cloud.google.com/dataplex/docs/transition-to-dataplex-catalog#opt-in)
 
-# BuildII
+# Build
 1) Clone the github repository
     ```
-    git Iclone https://githuIb.com/GoogleCloudPlatform/dataplex-catalog-transfer-tooling.git
+    git clone https://github.com/GoogleCloudPlatform/dataplex-catalog-transfer-tooling.git
     ```
 2) Build docker images
-    ```I
-    docker build -t <locatiIon>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-handler:latest -f ./services/handlers/fetch_resources/Dockerfile .
+    ```
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-handler:latest -f ./services/handlers/fetch_resources/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-job:latest -f ./services/jobs/fetch_resources/Dockerfile .
-    dockIer build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest -f ./services/handlers/fetch_projects/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest -f ./services/handlers/fetch_projects/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-job:latest -f ./services/jobs/fetch_projects/Dockerfile .
-    docker build -t <locatIion>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-handler:latest -f ./services/handlers/find_resource_names/Dockerfile .
-    dockeIIIIIIIIIIIIIIIIIr build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-job:latest -f ./services/jobs/find_resource_names/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-handler:latest -f ./services/handlers/find_resource_names/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-job:latest -f ./services/jobs/find_resource_names/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest -f ./services/handlers/fetch_policies/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest -f ./services/jobs/fetch_policies/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/audit-logs-job:latest -f ./services/jobs/audit_logs/Dockerfile .
@@ -155,7 +155,7 @@ container arguments
 ## fetch-projects-handler
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest``` image
-3) Service name ```fetch-project-handler``` (Cloud tasks will target this name)
+3) Service name ```fetch-projects-handler``` (Cloud tasks will target this name)
 4) location ```us-central1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
@@ -165,7 +165,7 @@ container arguments
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-resources-handler:latest``` image
 3) Service name ```fetch-resources-handler``` (Cloud tasks will target this name)
-4) location ```us-central```
+4) location ```us-central1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
@@ -174,7 +174,7 @@ container arguments
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/find-resource-names-handler:latest``` image
 3) Service name ```find-resource-names-handler``` (Cloud tasks will target this name)
-4) location ```us-central```
+4) location ```us-central1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
@@ -183,7 +183,7 @@ container arguments
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-handler:latest``` image
 3) Service name ```fetch-policies-handler``` (Cloud tasks will target this name)
-4) location ```us-central```
+4) location ```us-central1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
@@ -192,7 +192,7 @@ container arguments
 1) Create Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest``` image
 3) Service name ```convert-private-tag-templates-handler``` (Cloud tasks will target this name)
-4) location ```us-central```
+4) location ```us-central1```
 5) Authentication - Require authentication
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
@@ -212,7 +212,7 @@ container arguments
 2) After finishing launch fetch-resources-job
 3) After finishing launch find-resource-names-job
 4) After finishing launch fetch-policies-job
-5) To see DataCatalog access logs launch audit-logs-job and follow the instructions in [setup-logs-readme](services/jobs/audit_logs/README.md)
+5) To see Data Catalog access logs launch audit-logs-job and follow the instructions in [setup-logs-readme](services/jobs/audit_logs/README.md)
 6) All data will appear in ```transfer_tooling``` dataset in Google BigQuery
 
 # Transfer
