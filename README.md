@@ -44,7 +44,8 @@ You can convert between private and public tag templates and initiate transfer o
    * roles/run.invoker
    * roles/bigquery.jobUser
    * roles/iam.serviceAccountUser
-   IIIIIIIIIII* roles/cloudquotas.viewer
+   * roles/cloudquotas.viewer
+   * roles/bigquery.jobUser
 4) Enable API:
    * Cloud Resource Manager API
    * BigQuery IAPI
