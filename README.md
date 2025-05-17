@@ -39,6 +39,7 @@ You will also receive a mapping table showing the relation between Data Catalog 
    * roles/run.invoker
    * roles/bigquery.jobUser
    * roles/iam.serviceAccountUser
+   * roles/cloudquotas.viewer
 4) Enable API:
    * Cloud Resource Manager API
    * BigQuery API
