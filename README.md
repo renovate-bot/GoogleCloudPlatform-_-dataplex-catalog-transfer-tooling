@@ -129,7 +129,7 @@ container arguments
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-policies-job:latest``` image
 3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
-4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgNumber}```, ```folders/{folderNumber}``` or ```projects/{projectNumber}```
 5) You can set up resource type using ```-rt entry_group|tag_template|both``` flag
 6) You can set up system where to fetch policies by using ```-ms data_catalog|dataplex|both``` flag
 7) In Security section select the Service Account you've created
@@ -150,14 +150,14 @@ container arguments
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest``` image
 3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
-4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgNumber}```, ```folders/{folderNumber}``` or ```projects/{projectNumber}```
 5) In Security section select the Service Account you've created
 ## transfer-resources-job
 1) Create Cloud Run job
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest``` image
 3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
-4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgId}```, ```folders/{folderId}``` or ```projects/{projectId}```
+4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgNumber}```, ```folders/{folderNumber}``` or ```projects/{projectNumber}```
 5) You can set up resource type using ```-rt entry_group|tag_template|both``` flag
 6) In Security section select the Service Account you've created
 ## fetch-projects-handler
