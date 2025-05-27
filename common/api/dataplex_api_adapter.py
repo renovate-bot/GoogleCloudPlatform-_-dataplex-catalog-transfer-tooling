@@ -29,6 +29,7 @@ import google.cloud.dataplex as dataplex
 import google.cloud.dataplex_v1.types as dataplex_types
 import google.auth as auth
 from google.api_core.exceptions import NotFound
+from google.api_core.gapic_v1.client_info import ClientInfo
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 
@@ -46,7 +47,11 @@ class DataplexApiAdapter:
         """
         Initializes the DataplexApiAdapter with a Data Catalog client.
         """
-        self._client = dataplex.CatalogServiceClient()
+        self._client = dataplex.CatalogServiceClient(
+            client_info=ClientInfo(
+                user_agent="TransferTooling/1.0.0"
+            ),
+        )
         self._plain_client = discovery.build("dataplex", "v1")
         self._logger = get_logger()
         self._credentials, _ = auth.default(
