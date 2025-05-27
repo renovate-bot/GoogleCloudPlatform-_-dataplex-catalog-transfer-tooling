@@ -41,6 +41,7 @@ class TableNames(StrEnum):
     IAM_POLICIES = "iam_policies"
     TAG_TEMPLATES_RESOURCE_MAPPING = "tag_templates_resource_mapping"
     ENTRY_GROUPS_RESOURCE_MAPPING = "entry_groups_resource_mapping"
+    CLOUDAUDIT_GOOGLEAPIS_DATA_ACCESS = "cloudaudit_googleapis_com_data_access"
 
 
 class SchemaProvider:

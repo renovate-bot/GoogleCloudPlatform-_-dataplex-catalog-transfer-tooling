@@ -1,5 +1,5 @@
 # Copyright 2025 Google LLC
-#
+# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module provides custom exceptions for handling specific error conditions
-in a data processing application.
-"""
+FROM python:3.13.1-slim
 
-from common.exceptions.exceptions import (
-    IncorrectTypeException,
-    ValidationError,
-    FormatException,
-    MissingTablesOrViewsError,
-)
+ENV PYTHONUNBUFFERED 1
+
+WORKDIR /usr/src/app
+
+COPY ./requirements.txt ./
+RUN pip install -r requirements.txt
+
+COPY ./common/ ./common
+COPY ./services/jobs/analytics ./
+
+CMD ["python3", "main.py"]

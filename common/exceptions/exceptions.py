@@ -34,3 +34,9 @@ class FormatException(Exception):
     """
     Exception raised when a string is parsed incorrectly.
     """
+
+
+class MissingTablesOrViewsError(Exception):
+    """
+    Exception for missing required tables or views.
+    """

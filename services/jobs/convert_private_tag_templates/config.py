@@ -47,8 +47,8 @@ class ValidateScope(argparseAction):
             scope_id = int(match.group(2))
         else:
             parser.error(
-                "Invalid scope format. Expected 'organizations/{orgID}', "
-                "'folders/{folderID}', or 'projects/{projectId}'."
+                "Invalid scope format. Expected 'organizations/{orgNumber}', "
+                "'folders/{folderNumber}', or 'projects/{projectNumber}'."
             )
 
         setattr(
@@ -69,8 +69,9 @@ def parse_service_args(parser: ArgumentParser) -> None:
         required=True,
         action=ValidateScope,
         help=(
-            "Should be formatted as organizations/{orgId}, folders/{folderId},"
-            "or 'projects/{projectId}', defining the scope for the process."
+            "Should be formatted as 'organizations/{orgNumber}', "
+            "'folders/{folderNumber}' or 'projects/{projectNumber}', "
+            "defining the scope of projects for the process."
         ),
     )
     parser.add_argument(
