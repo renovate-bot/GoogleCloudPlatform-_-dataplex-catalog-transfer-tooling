@@ -587,6 +587,20 @@ class BigQueryAdapter:
                 ]
             return self._client.create_table(table)
 
+    def check_if_table_or_view_exists(
+        self, ref: bigquery.TableReference
+    ) -> bool:
+        """
+        Checks if a table or view exists in BigQuery.
+        """
+        if isinstance(ref, str):
+            ref = bigquery.TableReference.from_string(ref)
+        try:
+            self._client.get_table(ref)
+            return True
+        except NotFound:
+            return False
+
     @google_api_exception_shield
     def create_view_if_not_exists(
         self, view_ref: bigquery.TableReference | str
@@ -601,7 +615,14 @@ class BigQueryAdapter:
         self._ensure_dataset_exists()
 
         try:
-            return self._client.get_table(view_ref)
+            view = self._client.get_table(view_ref)
+            self._logger.info(
+                'View "%s.%s.%s" already exists.',
+                view.project,
+                view.dataset_id,
+                view.table_id,
+            )
+            return view
         except NotFound:
             sql = ViewSQLStatements.get_sql(view_ref)
             job = self._client.query(sql)
