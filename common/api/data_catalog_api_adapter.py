@@ -26,6 +26,7 @@ with the Data Catalog API.
 from enum import StrEnum
 
 from google.api_core.exceptions import NotFound, GoogleAPIError
+from google.api_core.gapic_v1.client_info import ClientInfo
 from google.cloud import datacatalog
 from google.cloud.datacatalog_v1.types import (
     SearchCatalogResponse,
@@ -55,7 +56,11 @@ class DatacatalogApiAdapter:
         """
         Initializes the DataCatalogApiAdapter with a Data Catalog client.
         """
-        self._client = datacatalog.DataCatalogClient()
+        self._client = datacatalog.DataCatalogClient(
+            client_info=ClientInfo(
+                user_agent="TransferTooling/1.0.0"
+            ),
+        )
         self._logger = get_logger()
 
     def _search_all(
