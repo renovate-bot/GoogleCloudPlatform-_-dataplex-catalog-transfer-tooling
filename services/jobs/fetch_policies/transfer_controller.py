@@ -28,7 +28,6 @@ from common.api import QuotaInfoAdapter, Services, Quotas
 from common.big_query import BigQueryAdapter
 from common.cloud_task import CloudTaskPublisher
 from common.entities import EntryGroup, TagTemplate, FetchPoliciesTaskData
-from common.api.resource_manager_api_adapter import ResourceManagerApiAdapter
 from common.utils import get_logger
 
 
@@ -49,7 +48,6 @@ class TransferController:
         self.handler_name = app_config["handler_name"]
         self.queue = app_config["queue"]
         self.quota_consumption = app_config["quota_consumption"]
-        self._resource_manager_client = ResourceManagerApiAdapter()
         self.scope = app_config["scope"]
         self._quota_client = QuotaInfoAdapter()
         self.default_dataplex_quota = self._get_default_dataplex_quota()

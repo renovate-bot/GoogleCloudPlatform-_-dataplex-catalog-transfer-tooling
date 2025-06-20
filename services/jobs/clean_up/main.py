@@ -1,0 +1,37 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+This module initializes the data transfer process by starting the cloud task
+consumer server. It uses the TransferController to manage the transfer based
+on the provided application configuration.
+"""
+
+from transfer_controller import TransferController
+from config import get_application_config
+
+
+def main(app_config: dict) -> None:
+    """
+    Starts the cloud task consumer server and initiates the data transfer
+    process.
+    """
+
+    controller = TransferController(app_config)
+    controller.start_transfer()
+
+
+if __name__ == "__main__":
+    config = get_application_config()
+    main(config)

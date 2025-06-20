@@ -24,18 +24,47 @@ with the Data Catalog API.
 """
 
 import google_auth_httplib2
-
+import google.auth as auth
 import google.cloud.dataplex as dataplex
 import google.cloud.dataplex_v1.types as dataplex_types
-import google.auth as auth
 from google.api_core.exceptions import NotFound
 from google.api_core.gapic_v1.client_info import ClientInfo
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
+from googleapiclient.http import HttpRequest
 
 from common.entities import TagTemplate, EntryGroup
 from common.exceptions import IncorrectTypeException
 from common.utils import get_logger
+
+
+class CustomRequestBuilder(HttpRequest):
+    """
+    A custom request builder that extends `googleapiclient.http.HttpRequest`
+    to include a custom `User-Agent` header for all outgoing HTTP requests.
+    """
+
+    def __init__(
+        self,
+        http,
+        postproc,
+        uri,
+        method="GET",
+        body=None,
+        headers=None,
+        methodId=None,
+        resumable=None,
+    ):
+        """
+        Initializes the CustomRequestBuilder with the specified parameters and
+        adds a custom `User-Agent` header to the request.
+        """
+        if headers is None:
+            headers = {}
+        headers["User-Agent"] = "TransferTooling/1.0.0"
+        super().__init__(
+            http, postproc, uri, method, body, headers, methodId, resumable
+        )
 
 
 class DataplexApiAdapter:
@@ -48,11 +77,11 @@ class DataplexApiAdapter:
         Initializes the DataplexApiAdapter with a Data Catalog client.
         """
         self._client = dataplex.CatalogServiceClient(
-            client_info=ClientInfo(
-                user_agent="TransferTooling/1.0.0"
-            ),
+            client_info=ClientInfo(user_agent="TransferTooling/1.0.0"),
         )
-        self._plain_client = discovery.build("dataplex", "v1")
+        self._plain_client = discovery.build(
+            "dataplex", "v1", requestBuilder=CustomRequestBuilder
+        )
         self._logger = get_logger()
         self._credentials, _ = auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]

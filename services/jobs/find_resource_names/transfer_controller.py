@@ -30,7 +30,6 @@ from google.cloud.tasks_v2 import Task
 from common.api import QuotaInfoAdapter, Services, Quotas
 from common.big_query import BigQueryAdapter, ViewNames, TableNames
 from common.cloud_task import CloudTaskPublisher
-from common.api.resource_manager_api_adapter import ResourceManagerApiAdapter
 from common.entities import EntryGroup, TagTemplate, ResourceTaskData
 from common.utils import get_logger
 
@@ -55,7 +54,6 @@ class TransferController:
         self.quota_consumption = app_config["quota_consumption"]
         self._quota_client = QuotaInfoAdapter()
         self.default_dataplex_quota = self._get_default_dataplex_quota()
-        self._resource_manager_client = ResourceManagerApiAdapter()
         self._big_query_client = BigQueryAdapter(
             self.project,
             app_config["dataset_location"],

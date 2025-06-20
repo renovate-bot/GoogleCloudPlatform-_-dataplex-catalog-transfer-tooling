@@ -28,6 +28,7 @@ from enum import StrEnum
 from google.api_core.exceptions import NotFound, GoogleAPIError
 from google.api_core.gapic_v1.client_info import ClientInfo
 from google.cloud import datacatalog
+from google.cloud.datacatalog_v1 import DeleteEntryGroupRequest
 from google.cloud.datacatalog_v1.types import (
     SearchCatalogResponse,
     tags,
@@ -330,22 +331,25 @@ class DatacatalogApiAdapter:
         )
 
     def delete_entry_group(
-        self, project: str, location: str, name: str
+        self, project: str, location: str, name: str, force: bool = False
     ) -> None:
         """
         Deletes an entry group.
         """
         self._client.delete_entry_group(
-            name=f"projects/{project}/locations/{location}/entryGroups/{name}"
+            request=DeleteEntryGroupRequest({
+                "name": EntryGroup.get_old_fqn(project, location, name),
+                "force": force,
+            })
         )
 
     def delete_tag_template(
-        self, project: str, location: str, name: str, force: bool = None
+        self, project: str, location: str, name: str, force: bool = False
     ) -> None:
         """
         Deletes a tag template.
         """
         self._client.delete_tag_template(
-            name=f"projects/{project}/locations/{location}/tagTemplates/{name}",
+            name=TagTemplate.get_old_fqn(project, location, name),
             force=force,
         )
