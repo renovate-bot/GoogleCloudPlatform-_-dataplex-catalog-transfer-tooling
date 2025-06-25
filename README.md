@@ -50,7 +50,6 @@ You can convert between private and public tag templates and initiate transfer o
    * BigQuery API
    * Cloud Tasks API
    * Cloud Run Admin API
-   * Cloud Data Catalog API
    * Artifact Registry API
    * Cloud Asset API
    * Dataplex API
@@ -80,6 +79,8 @@ You can convert between private and public tag templates and initiate transfer o
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest -f ./services/jobs/transfer_resources/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-handler:latest -f ./services/handlers/convert_private_tag_templates/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest -f ./services/jobs/convert_private_tag_templates/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/clean-up-job:latest -f ./services/jobs/clean_up/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/clean-up-handler:latest -f ./services/handlers/clean_up/Dockerfile .
     ```
     Where
    * work_project_id - ID of the project you've created for this tool
@@ -101,6 +102,8 @@ docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-privat
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-handler:latest
 docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/clean-up-job:latest
+docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/clean-up-handler:latest
 ```
 # Deploy
 When you will set up container commands, be sure to input it separately (as at the picture below)
@@ -141,7 +144,7 @@ container arguments
 ## analytics-job
 1) Create Cloud Run job
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/analytics:latest``` image
-3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 4) In Security section select the Service Account you've created
 ## convert-private-tag-templates-job
