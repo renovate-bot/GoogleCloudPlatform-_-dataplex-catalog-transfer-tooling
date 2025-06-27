@@ -63,7 +63,7 @@ class TransferController:
         """
         entry_groups, tag_templates = self.fetch_resources(
             self.resource_types,
-            [ManagingSystem.DATAPLEX],
+            ["DATAPLEX"],
             self.scope,
         )
         if entry_groups is not None:
