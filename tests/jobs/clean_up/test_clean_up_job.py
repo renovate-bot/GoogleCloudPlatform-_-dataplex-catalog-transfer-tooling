@@ -274,7 +274,7 @@ class TestCleanUpJob:
                     ).get("PROJECT", False)
                 case _:
                     raise ValueError(f"Unsupported scope type: {scope_type}")
-            return in_scope and resource.managing_system == "DATA_CATALOG"
+            return in_scope and resource.managing_system == "DATAPLEX"
 
         filtered_resources = []
         if "entry_group" in resource_types:
