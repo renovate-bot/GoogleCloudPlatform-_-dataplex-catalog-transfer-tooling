@@ -21,7 +21,7 @@ Classes:
 - TransferController: A controller class for managing the transfer of tag
   templates and entry groups from the Data Catalog to BigQuery.
 """
-
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from google.api_core.exceptions import GoogleAPICallError
@@ -30,7 +30,6 @@ from google.cloud.tasks_v2 import Task
 from common.api import QuotaInfoAdapter, Services, Quotas
 from common.big_query import BigQueryAdapter, ViewNames, TableNames
 from common.cloud_task import CloudTaskPublisher
-from common.api.resource_manager_api_adapter import ResourceManagerApiAdapter
 from common.entities import EntryGroup, TagTemplate, ResourceTaskData
 from common.utils import get_logger
 
@@ -55,7 +54,6 @@ class TransferController:
         self.quota_consumption = app_config["quota_consumption"]
         self._quota_client = QuotaInfoAdapter()
         self.default_dataplex_quota = self._get_default_dataplex_quota()
-        self._resource_manager_client = ResourceManagerApiAdapter()
         self._big_query_client = BigQueryAdapter(
             self.project,
             app_config["dataset_location"],
@@ -65,6 +63,7 @@ class TransferController:
             self.project, self.location, self.queue, max_rps=2
         )
         self._logger = get_logger()
+        self._retry_timeout = 60 * 60 #hour
 
     def _get_default_dataplex_quota(self) -> int:
         """
@@ -95,6 +94,18 @@ class TransferController:
         Initiates the data transfer process by fetching resources
         from tables and creating tasks
         """
+        while True:
+            # Wait till the previous service finish working
+            messages = self._cloud_task_client.get_messages(queue_name="resource-discovery")
+            if not messages:
+                break
+
+            self._logger.warning(
+                f"Previous service (fetch resources) is still working. "
+                f"Waiting {self._retry_timeout} seconds to retry"
+            )
+            time.sleep(self._retry_timeout)
+
         self._setup_tables_and_views()
 
         entry_groups, tag_templates = self.fetch_resources()

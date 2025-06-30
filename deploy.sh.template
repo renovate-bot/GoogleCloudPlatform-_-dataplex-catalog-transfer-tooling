@@ -1,0 +1,311 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#!/bin/bash
+
+# ---------- Check gcloud auth ----------
+echo "Checking authentication..."
+if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then
+ echo "No active gcloud auth session found. Logging in..."
+ gcloud auth login
+else
+ echo "gcloud is already authenticated."
+fi
+
+
+# ---------- Configuration ----------
+# Mandatory parameters: SCOPE and SERVICE_ACCOUNT
+# These two parameters must be explicitly set before running the script.
+
+# SCOPE: Defines the scope of projects for the process.
+# Should be formatted as:
+#   - "organizations/{orgNumber}"" (e.g., "organizations/123456789012")
+#   - "folders/{folderNumber}"" (e.g., "folders/987654321098")
+#   - "projects/{projectNumber}"" (e.g., "projects/123456789012")
+SCOPE=<projects/{projectNumber}>
+
+# SERVICE_ACCOUNT: The email of the service account to be used for authentication.
+# Example format:
+#   SERVICE_ACCOUNT="your-service-account@your-project.iam.gserviceaccount.com"
+SERVICE_ACCOUNT=<your-service-account@your-project.iam.gserviceaccount.com>
+
+# Optional parameters: These can be left unchanged or modified as needed.
+REGION="us-central1"  # Default region for deployment
+PROJECT_ID=$(gcloud config get-value project)  # Automatically fetches the current GCP project
+# This repository stores public Docker images. To use your own registry, update the value below.
+# Format: REGISTRY="<registry-domain>/<project>/<repository>"
+# You can build the images using the provided cloudbuild.yaml file.
+REGISTRY="us-docker.pkg.dev/dataplex-transfer-tooling/dataplex-transfer-tooling"  # Docker registry for images
+SINK_NAME="data-catalog-audit-logs"  # Sink name for audit logs
+
+DEBUG=false
+FAILED_ACTIONS=()
+
+# ---------- try wrapper ----------
+try() {
+ if [ "$DEBUG" = true ]; then
+   "$@"
+ else
+   "$@" >/dev/null 2>&1
+ fi
+ local code=$?
+ if [[ $code -ne 0 ]]; then
+   echo "❌ Command failed: $*"
+   FAILED_ACTIONS+=("$*")
+ fi
+ return $code
+}
+
+# # ---------- Enable Required APIs ----------
+APIS=(
+  cloudresourcemanager.googleapis.com
+  bigquery.googleapis.com
+  cloudtasks.googleapis.com
+  run.googleapis.com
+  datacatalog.googleapis.com
+  cloudasset.googleapis.com
+  dataplex.googleapis.com
+  cloudscheduler.googleapis.com
+  cloudquotas.googleapis.com
+)
+
+echo ""
+echo "🛠️ Starting to enable APIs for project: $PROJECT_ID"
+echo "----------------------------------------------------"
+ 
+API_FAILED=false
+for API in "${APIS[@]}"; do
+  echo "Enabling $API ..."
+  if try gcloud services enable "$API" --project="$PROJECT_ID"; then
+    echo "$API enabled."
+  else
+    API_FAILED=true
+  fi
+done
+ 
+if [[ "$API_FAILED" = false ]]; then
+  echo "✅ All required APIs enabled successfully!"
+else
+  echo "⚠️ Some APIs failed to enable. See above for details."
+fi
+
+# ---------- Arguments ----------
+BASE_ARGS="main.py -p $PROJECT_ID"
+
+declare -A IMAGES_ARGS=(
+  [fetch-projects-handler]="$BASE_ARGS"
+  [fetch-resources-handler]="$BASE_ARGS"
+  [find-resource-names-handler]="$BASE_ARGS"
+  [fetch-policies-handler]="$BASE_ARGS"
+  [convert-private-tag-templates-handler]="$BASE_ARGS"
+  [transfer-resources-handler]="$BASE_ARGS"
+  [clean-up-handler]="main.py"
+
+  [fetch-projects-job]="$BASE_ARGS"
+  [fetch-resources-job]="$BASE_ARGS"
+  [find-resource-names-job]="$BASE_ARGS"
+  [audit-logs-job]="$BASE_ARGS"
+  [fetch-policies-job]="$BASE_ARGS -s $SCOPE"
+  [convert-private-tag-templates-job]="$BASE_ARGS -s $SCOPE"
+  [transfer-resources-job]="$BASE_ARGS -s $SCOPE"
+  [clean-up-job]="$BASE_ARGS -s $SCOPE"
+  [analytics-job]="$BASE_ARGS"
+)
+
+# Custom memory for job
+declare -A JOB_MEMORY=(
+ [find-resource-names-job]="2Gi"
+ [fetch-policies-job]="1Gi"
+ [transfer-resources-job]="4Gi"
+)
+
+# Override for execution timeout (in seconds)
+declare -A JOB_TIMEOUTS=(
+  [find-resource-names-job]=36000
+  [fetch-policies-job]=7200
+  [convert-private-tag-templates-job]=3600
+  [transfer-resources-job]=7200
+)
+
+# Random base hour and job schedule calculation
+random_base_hour=$((RANDOM % 4))
+ 
+fetch_projects_hour=$random_base_hour
+fetch_resources_hour=$((random_base_hour + 1))
+find_resource_names_hour=$((random_base_hour + 2))
+analytics_hour=$((random_base_hour + 14))
+fetch_policies_hour=$((random_base_hour + 15))
+convert_tag_templates_hour=$((random_base_hour + 18))
+
+# Define cron schedule for jobs
+declare -A JOB_SCHEDULES=(
+ [fetch-projects-job]="0 $fetch_projects_hour * * *"
+ [fetch-resources-job]="0 $fetch_resources_hour * * *"
+ [find-resource-names-job]="0 $find_resource_names_hour * * *"
+ [analytics-job]="50 $analytics_hour * * *"
+ [fetch-policies-job]="0 $fetch_policies_hour * * *"
+ [convert-private-tag-templates-job]="0 $convert_tag_templates_hour * * *"
+)
+
+# # ---------- Artifact Registry Auth ----------
+REGISTRY_HOSTNAME=$(echo "$REGISTRY" | cut -d'/' -f1)
+echo ""
+echo "🔒 Authenticating Docker with Artifact Registry..."
+echo "----------------------------------------------------"
+try gcloud auth configure-docker "$REGISTRY_HOSTNAME" 
+
+# ---------- Deploy All Images ----------
+echo ""
+echo "🚀 Starting pull + deploy process for all images..."
+echo "----------------------------------------------------"
+
+DEPLOYMENT_FAILED=false
+
+for IMAGE in "${!IMAGES_ARGS[@]}"; do
+  FULL_IMAGE="$REGISTRY/$IMAGE:latest"
+  echo "Pulling $FULL_IMAGE ..."
+  try docker pull "$FULL_IMAGE" && echo "Pulled $FULL_IMAGE" || {
+    echo "Skipping deployment for $FULL_IMAGE due to pull failure."
+    DEPLOYMENT_FAILED=true
+    continue
+  }
+
+  ARGS="${IMAGES_ARGS[$IMAGE]}"
+  ARG_LIST=$(echo "$ARGS" | tr ' ' ',')
+
+  if [[ "$IMAGE" == *"-job" ]]; then
+    echo "Deploying $IMAGE as a Cloud Run **Job**..."
+
+   MEMORY=${JOB_MEMORY[$IMAGE]:-512Mi}
+   TASK_TIMEOUT=${TASK_TIMEOUTS[$IMAGE]:-600}
+
+    try gcloud run jobs deploy "$IMAGE" \
+      --image="$FULL_IMAGE" \
+      --region="$REGION" \
+      --project="$PROJECT_ID" \
+      --command="python3" \
+      --args="$ARG_LIST" \
+      --max-retries=3 \
+      --memory="$MEMORY" \
+      --cpu=1 \
+      --service-account $SERVICE_ACCOUNT || DEPLOYMENT_FAILED=true
+
+    echo "Granting Cloud Scheduler permission to invoke $IMAGE"
+    try gcloud run jobs add-iam-policy-binding "$IMAGE" \
+        --member="serviceAccount:$PROJECT_ID@appspot.gserviceaccount.com" \
+        --role="roles/run.invoker" \
+        --region="$REGION" || DEPLOYMENT_FAILED=true
+    
+    if [[ -n "${JOB_SCHEDULES[$IMAGE]}" ]]; then
+        SCHEDULE="${JOB_SCHEDULES[$IMAGE]}"
+        echo "Cloud Scheduler for $IMAGE → $SCHEDULE"
+    
+        try gcloud scheduler jobs create http "$IMAGE-schedule" \
+        --schedule="$SCHEDULE" \
+        --uri="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/$IMAGE:run" \
+        --http-method=POST \
+        --oauth-service-account-email="$SERVICE_ACCOUNT" \
+        --location="$REGION" \
+        --message-body="{}" \
+        --time-zone="UTC" \
+        --attempt-deadline="300s" || echo "Scheduler may already exist, skipping"
+    fi
+  else
+    echo "Deploying $IMAGE as a Cloud Run **Service**..."
+    try gcloud run deploy "$IMAGE" \
+      --image="$FULL_IMAGE" \
+      --command="python3" \
+      --args="$ARG_LIST" \
+      --platform=managed \
+      --ingress=internal \
+      --no-allow-unauthenticated \
+      --region="$REGION" \
+      --project="$PROJECT_ID" \
+      --service-account $SERVICE_ACCOUNT || DEPLOYMENT_FAILED=true
+  fi
+
+done
+
+if [[ "$DEPLOYMENT_FAILED" = false ]]; then
+  echo "✅ All handlers deployed as services and jobs deployed as Cloud Run jobs!"
+else
+  echo "⚠️ Some handlers or jobs failed to deploy. See above for details."
+fi
+
+
+ # ---------- Post-deploy: Audit Log Sink Creation Job ----------
+run_audit_log_sink_job() {
+  echo ""
+  echo "📜 Executing audit log sink creation job..."
+  echo "----------------------------------------------------"
+
+  if ! try gcloud run jobs execute audit-logs-job --region="$REGION"; then
+    echo "⚠️ Audit log sink creation job failed!"
+    return 1
+  fi
+ 
+  echo "Waiting for sink propagation... (2 minutes)"
+  sleep 120
+ 
+  echo "Retrieving sink writer identity..."
+  WRITER_IDENTITY=$(gcloud logging sinks describe "$SINK_NAME" \
+    --project="$PROJECT_ID" \
+    --format='value(writerIdentity)' )
+ 
+  echo "Writer Identity: $WRITER_IDENTITY"
+ 
+  echo "Granting BigQuery permissions to sink writer identity..."
+  try gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="$WRITER_IDENTITY" \
+    --role="roles/bigquery.dataEditor" \
+    --condition=None
+
+  echo "✅ Audit log sink creation completed successfully!"  
+}
+ 
+if ! run_audit_log_sink_job; then
+  echo ""
+  echo "⚠️ Skipping remaining post-deploy steps due to audit log sink job failure."
+fi
+
+# ---------- Final Report And Next Steps----------
+echo ""
+if [[ ${#FAILED_ACTIONS[@]} -eq 0 ]]; then
+ echo "🐱 All operations completed successfully!"
+ echo ""
+ echo "🎉 Next Step:"
+ echo ""
+ echo "   Enable Data Access Logs via the Google Cloud Console:"
+ echo "   - Go to the Audit Logs page in the Google Cloud Console."
+ echo "   - Locate 'Data Catalog' in the Service column of the Data Access audit logs configuration table."
+ echo "   - Click on 'Data Catalog' to open the configuration panel."
+ echo "   - In the 'Log Types' tab, select the Data Access audit log types you want to enable:"
+ echo "     - DATA_READ"
+ echo "     - DATA_WRITE"
+ echo "     - ADMIN_READ"
+ echo "   - Go to the 'Exempted Principals' tab in the information panel."
+ echo "   - Click 'Add exempted principal' and add the service account used by transfer tooling (e.g., service-account@project-id.iam.gserviceaccount.com)."
+ echo "   - In the **Disabled permission types** section for the exempted principal, select audit log types that you want to disable:"
+ echo "     - ADMIN_READ"
+ echo "     - DATA_READ"
+ echo "     - DATA_WRITE"
+ echo "   - Click 'Done'."
+ echo "   - Click 'Save'."
+ echo ""
+else
+ echo "🙀 The following operations failed:"
+ for action in "${FAILED_ACTIONS[@]}"; do
+   echo "  - $action"
+ done
+fi

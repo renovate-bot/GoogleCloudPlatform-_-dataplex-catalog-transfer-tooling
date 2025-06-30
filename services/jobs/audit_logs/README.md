@@ -66,6 +66,22 @@ This guide explains how to grant a log sink the necessary permissions to write t
    - **ADMIN_READ**
 5. Go to the **Exempted Principals** tab in the information panel.
 6. Click **Add exempted principal** and add the service account used by transfer tooling to improve log readability (e.g., `service-account@project-id.iam.gserviceaccount.com`).
-7. Click **Save**.
+7. In the **Disabled permission types** section for the exempted principal, select audit log types that you want to disable:
+   - **ADMIN_READ**
+   - **DATA_READ**
+   - **DATA_WRITE**
+8. Click **Done**.
+9. Click **Save**.
 
 > **Note:** Enabling Data Access logs via the UI is safer because it ensures that existing policies are preserved. Using Cloud Shell may unintentionally override existing configurations.
+
+## Troubleshooting
+### Issue: Unable to Add Exempted Principal
+If you encounter an issue when adding an exempted principal, it may be due to the `iam.disableAuditLoggingExemption` organization policy being enforced. This policy prevents adding exemptions to audit logs.
+
+### Solution: Disable the Policy
+1. Navigate to **IAM & Admin** > **Organization Policies** in the **Google Cloud Console**.
+2. Locate the policy `iam.disableAuditLoggingExemption`.
+3. Click on the policy to open it, then click **Manage Policy**. Alternatively, click the **Actions** menu (three vertical dots) next to the policy and select **Edit Policy**. As shown in the image below, change the policy setting to disable the constraint.\
+   ![disable_audit_log_exemption.png](/pictures/disable_audit_log_exemption.png)
+4. Save the changes and retry adding the exempted principal.

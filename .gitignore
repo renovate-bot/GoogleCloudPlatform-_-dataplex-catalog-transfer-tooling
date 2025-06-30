@@ -1,3 +1,7 @@
 __pycache__
+.pytest_cache/
 env_config/
 .venv
+pytest.ini
+cloudbuild.yaml
+deploy.sh

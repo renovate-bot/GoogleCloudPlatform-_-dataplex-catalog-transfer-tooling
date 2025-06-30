@@ -23,11 +23,13 @@ Classes:
 """
 
 import datetime
+import time
 
 from common.api import DatacatalogApiAdapter
 from common.big_query import BigQueryAdapter
 from common.cloud_task import CloudTaskPublisher
 from common.entities import FetchResourcesTaskData
+from common.utils import get_logger
 
 
 class TransferController:
@@ -54,12 +56,26 @@ class TransferController:
         self._cloud_task_client = CloudTaskPublisher(
             self.project, self.location, self.queue_name
         )
+        self._logger = get_logger()
+        self._retry_timeout = 60 * 60 #hour
 
     def start_transfer(self) -> None:
         """
         Initiates the data transfer process by fetching projects and resources,
         and writing them to BigQuery tables.
         """
+        while True:
+            # Wait till the previous service finish working
+            messages = self._cloud_task_client.get_messages(queue_name="project-discovery")
+            if not messages:
+                break
+
+            self._logger.warning(
+                f"Previous service (fetch projects) is still working. "
+                f"Waiting {self._retry_timeout} seconds to retry"
+            )
+            time.sleep(self._retry_timeout)
+
         projects = self.get_projects_to_fetch()
         self.create_cloud_tasks(projects)
 
