@@ -83,7 +83,7 @@ APIS=(
 echo ""
 echo "🛠️ Starting to enable APIs for project: $PROJECT_ID"
 echo "----------------------------------------------------"
- 
+
 API_FAILED=false
 for API in "${APIS[@]}"; do
   echo "Enabling $API ..."
@@ -93,7 +93,7 @@ for API in "${APIS[@]}"; do
     API_FAILED=true
   fi
 done
- 
+
 if [[ "$API_FAILED" = false ]]; then
   echo "✅ All required APIs enabled successfully!"
 else
@@ -140,7 +140,7 @@ declare -A JOB_TIMEOUTS=(
 
 # Random base hour and job schedule calculation
 random_base_hour=$((RANDOM % 4))
- 
+
 fetch_projects_hour=$random_base_hour
 fetch_resources_hour=$((random_base_hour + 1))
 find_resource_names_hour=$((random_base_hour + 2))
@@ -163,7 +163,7 @@ REGISTRY_HOSTNAME=$(echo "$REGISTRY" | cut -d'/' -f1)
 echo ""
 echo "🔒 Authenticating Docker with Artifact Registry..."
 echo "----------------------------------------------------"
-try gcloud auth configure-docker "$REGISTRY_HOSTNAME" 
+try gcloud auth configure-docker "$REGISTRY_HOSTNAME"
 
 # ---------- Deploy All Images ----------
 echo ""
@@ -206,11 +206,11 @@ for IMAGE in "${!IMAGES_ARGS[@]}"; do
         --member="serviceAccount:$PROJECT_ID@appspot.gserviceaccount.com" \
         --role="roles/run.invoker" \
         --region="$REGION" || DEPLOYMENT_FAILED=true
-    
+
     if [[ -n "${JOB_SCHEDULES[$IMAGE]}" ]]; then
         SCHEDULE="${JOB_SCHEDULES[$IMAGE]}"
         echo "Cloud Scheduler for $IMAGE → $SCHEDULE"
-    
+
         try gcloud scheduler jobs create http "$IMAGE-schedule" \
         --schedule="$SCHEDULE" \
         --uri="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/$IMAGE:run" \
@@ -228,7 +228,7 @@ for IMAGE in "${!IMAGES_ARGS[@]}"; do
       --command="python3" \
       --args="$ARG_LIST" \
       --platform=managed \
-      --ingress=internal \
+      --ingress=internal-and-cloud-load-balancing \
       --no-allow-unauthenticated \
       --region="$REGION" \
       --project="$PROJECT_ID" \
@@ -254,26 +254,26 @@ run_audit_log_sink_job() {
     echo "⚠️ Audit log sink creation job failed!"
     return 1
   fi
- 
+
   echo "Waiting for sink propagation... (2 minutes)"
   sleep 120
- 
+
   echo "Retrieving sink writer identity..."
   WRITER_IDENTITY=$(gcloud logging sinks describe "$SINK_NAME" \
     --project="$PROJECT_ID" \
     --format='value(writerIdentity)' )
- 
+
   echo "Writer Identity: $WRITER_IDENTITY"
- 
+
   echo "Granting BigQuery permissions to sink writer identity..."
   try gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="$WRITER_IDENTITY" \
     --role="roles/bigquery.dataEditor" \
     --condition=None
 
-  echo "✅ Audit log sink creation completed successfully!"  
+  echo "✅ Audit log sink creation completed successfully!"
 }
- 
+
 if ! run_audit_log_sink_job; then
   echo ""
   echo "⚠️ Skipping remaining post-deploy steps due to audit log sink job failure."
