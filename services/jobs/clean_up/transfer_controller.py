@@ -24,10 +24,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.tasks_v2 import Task
 
-from common.api import QuotaInfoAdapter, Services, Quotas
 from common.big_query import BigQueryAdapter
 from common.cloud_task import CloudTaskPublisher
-from common.entities import EntryGroup, TagTemplate, FetchPoliciesTaskData
+from common.entities import EntryGroup, TagTemplate, ResourceTaskData, ManagingSystem
 from common.utils import get_logger
 
 
@@ -43,14 +42,10 @@ class TransferController:
         """
         self.project_name = app_config["project_name"]
         self.resource_types = app_config["resource_types"]
-        self.managing_systems = app_config["managing_systems"]
         self.location = app_config["service_location"]
         self.handler_name = app_config["handler_name"]
         self.queue = app_config["queue"]
-        self.quota_consumption = app_config["quota_consumption"]
         self.scope = app_config["scope"]
-        self._quota_client = QuotaInfoAdapter()
-        self.default_dataplex_quota = self._get_default_dataplex_quota()
         self._big_query_client = BigQueryAdapter(
             self.project_name,
             app_config["dataset_location"],
@@ -61,37 +56,20 @@ class TransferController:
         )
         self._logger = get_logger()
 
-    def _get_default_dataplex_quota(self) -> int:
-        """
-        Retrieves the default Dataplex quota for the project.
-        """
-        return self._quota_client.get_default_quota_value(
-            self.project_name,
-            Services.DATAPLEX,
-            Quotas.DATAPLEX_IAM_POLICY_REQUESTS,
-        )
-
     def start_transfer(self) -> None:
         """
         Initiates the data transfer process by fetching resources
         from tables and creating tasks
         """
-        resources = self.fetch_resources(
+        entry_groups, tag_templates = self.fetch_resources(
             self.resource_types,
-            self.managing_systems,
+            [ManagingSystem.DATAPLEX],
             self.scope,
         )
-
-        collector = []
-        resources_date = None
-
-        for resource in resources:
-            if resource:
-                collector += resource[0]
-                resources_date = resource[1]
-
-        if len(collector) > 0 and date is not None:
-            self.create_cloud_tasks((collector, resources_date))
+        if entry_groups is not None:
+            self.create_cloud_tasks(entry_groups)
+        if tag_templates is not None:
+            self.create_cloud_tasks(tag_templates)
 
     def fetch_resources(
         self,
@@ -103,18 +81,18 @@ class TransferController:
         tuple[list[TagTemplate], date] | None,
     ]:
         """
-        Fetches entry groups and tag templates from BigQuery tables.
+        Fetches entry groups and tag templates from BigQuery tables."
         """
         entry_groups = (
             self._big_query_client.get_entry_groups_within_scope(
-                scope, managing_systems
+                scope, managing_systems, ManagingSystem.DATA_CATALOG
             )
             if "entry_group" in resource_types
             else None
         )
         tag_templates = (
             self._big_query_client.get_tag_templates_within_scope(
-                scope, managing_systems
+                scope, managing_systems, ManagingSystem.DATA_CATALOG
             )
             if "tag_template" in resource_types
             else None
@@ -129,26 +107,10 @@ class TransferController:
         """
         Creates Cloud Tasks for the given resources.
         """
-        resources, created_at = resources_date
+        resources, _ = resources_date
 
-        if any(x.managing_system == "DATA_CATALOG" for x in resources):
-            if not self._cloud_task_client.check_queue_exists():
-                self._cloud_task_client.create_queue()
-
-        locations = set(
-            map(
-                lambda x: x.location,
-                filter(lambda x: x.managing_system == "DATAPLEX", resources),
-            )
-        )
-
-        if "global" in locations:
-            locations.remove("global")
-            locations.add("us-central1")
-
-        self._cloud_task_client.prepare_queues_for_locations(
-            locations, self.default_dataplex_quota, self.quota_consumption
-        )
+        if not self._cloud_task_client.check_queue_exists():
+            self._cloud_task_client.create_queue()
 
         tasks = []
         error_counter = 0
@@ -172,10 +134,9 @@ class TransferController:
             cur_chunk_size = 0
 
             for resource in resources:
-                payload = FetchPoliciesTaskData(
+                payload = ResourceTaskData(
                     **{
                         "resource_type": type(resource).__name__,
-                        "created_at": created_at,
                         "resource": {
                             "resource_name": resource.id,
                             "location": resource.location,
@@ -192,7 +153,6 @@ class TransferController:
                         self.handler_name,
                         self.project_name,
                         self.location,
-                        resource.location,
                     )
                 )
 
@@ -219,19 +179,11 @@ class TransferController:
         handler_name: str,
         project: str,
         location: str,
-        msg_location: str = None,
     ) -> Task | GoogleAPICallError:
         """
         Creates a single Cloud Task with the given payload.
         """
-
         try:
-            if payload["resource"]["system"] == "DATAPLEX":
-                if payload["resource_type"] == "TagTemplate":
-                    msg_location = "us-central1"
-                return self._cloud_task_client.create_task_by_message_location(
-                    payload, handler_name, msg_location, project, location
-                )
             return self._cloud_task_client.create_task(
                 payload, handler_name, project, location
             )

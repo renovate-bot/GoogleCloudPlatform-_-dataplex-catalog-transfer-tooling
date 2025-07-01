@@ -27,7 +27,6 @@ from google.cloud.tasks_v2 import Task
 from common.big_query import BigQueryAdapter
 from common.cloud_task import CloudTaskPublisher
 from common.entities import EntryGroup, TagTemplate, ResourceTaskData
-from common.api.resource_manager_api_adapter import ResourceManagerApiAdapter
 from common.utils import get_logger
 
 
@@ -47,7 +46,6 @@ class TransferController:
         self.handler_name = app_config["handler_name"]
         self.queue = app_config["queue"]
         self.scope = app_config["scope"]
-        self._resource_manager_client = ResourceManagerApiAdapter()
         self._big_query_client = BigQueryAdapter(
             self.project_name,
             app_config["dataset_location"],
