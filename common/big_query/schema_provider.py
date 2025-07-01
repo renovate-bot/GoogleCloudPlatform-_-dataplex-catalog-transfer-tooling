@@ -93,7 +93,7 @@ class SchemaProvider:
                 ],
                 "is_partitioned": True,
                 "partition_column": "createdAt",
-                "require_partition_filter": True,
+                "require_partition_filter": False,
             },
             TableNames.TAG_TEMPLATES_RESOURCE_MAPPING: {
                 "schema": [
@@ -151,7 +151,7 @@ class SchemaProvider:
                 ],
                 "is_partitioned": True,
                 "partition_column": "createdAt",
-                "require_partition_filter": True,
+                "require_partition_filter": False,
             },
             TableNames.ENTRY_GROUPS_RESOURCE_MAPPING: {
                 "schema": [
@@ -220,7 +220,7 @@ class SchemaProvider:
                 ],
                 "is_partitioned": True,
                 "partition_column": "createdAt",
-                "require_partition_filter": True,
+                "require_partition_filter": False,
             },
             TableNames.IAM_POLICIES: {
                 "schema": [

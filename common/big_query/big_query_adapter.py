@@ -207,9 +207,9 @@ class BigQueryAdapter:
         table_ref = self._get_table_ref(ViewNames.ENTRY_GROUPS_VIEW)
         target_creation_date = self._get_target_creation_date(table_ref)
         query = f"""SELECT
-                        projectId,
-                        location,
-                        entryGroupId,
+                        projectId, 
+                        location, 
+                        entryGroupId, 
                         managingSystem
                     FROM `{table_ref}`
                     WHERE {self._partition_column} = \"{target_creation_date}\"
@@ -238,8 +238,8 @@ class BigQueryAdapter:
         table_ref = self._get_table_ref(ViewNames.TAG_TEMPLATES_VIEW)
         target_creation_date = self._get_target_creation_date(table_ref)
         query = f"""SELECT
-                        projectId,
-                        location,
+                        projectId, 
+                        location, 
                         tagTemplateId,
                         isPubliclyReadable,
                         managingSystem
@@ -280,19 +280,19 @@ class BigQueryAdapter:
         )
 
         query = f"""
-            DECLARE scope_type STRING;
+            DECLARE scope_type STRING; 
             SET scope_type = \"{scope["scope_type"]}\";
 
             SELECT DISTINCT
                 resourceName
-            FROM
+            FROM 
                 `{tt_table_ref}` AS tag_templates
-            JOIN
+            JOIN 
                 `{projects_table_ref}` AS projects
-            ON
+            ON 
                 tag_templates.projectId = projects.projectId,
             UNNEST(projects.ancestry) AS ancestryItem
-            WHERE
+            WHERE 
                 tag_templates.createdAt = \"{target_creation_date_for_tt}\"
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
                 AND tag_templates.isPubliclyReadable = FALSE
@@ -300,7 +300,7 @@ class BigQueryAdapter:
                     (scope_type IN ("FOLDER", "ORGANIZATION")
                     AND ancestryItem.type = \"{scope["scope_type"]}\"
                     AND ancestryItem.id = \"{scope["scope_id"]}\")
-                    OR (scope_type = "PROJECT"
+                    OR (scope_type = "PROJECT" 
                     AND projects.projectNumber = {scope["scope_id"]})
                 )
         """
@@ -337,7 +337,10 @@ class BigQueryAdapter:
         return private_tag_templates
 
     def get_entry_groups_within_scope(
-        self, scope: dict, managing_systems: list
+        self,
+        scope: dict,
+        select_managing_systems: list,
+        resource_managing_system: str = None
     ) -> tuple[list["EntryGroup"], date]:
         """
 
@@ -353,35 +356,35 @@ class BigQueryAdapter:
             projects_table_ref
         )
         query = f"""
-            DECLARE scope_type STRING;
+            DECLARE scope_type STRING; 
             SET scope_type = \"{scope["scope_type"]}\";
 
             SELECT DISTINCT
                 resourceName as dataCatalogResourceName,
                 dataplexResourceName,
                 managingSystem
-            FROM
+            FROM 
                 `{eg_table_ref}` AS entry_groups
-            JOIN
+            JOIN 
                 `{projects_table_ref}` AS projects
-            ON
+            ON 
                 entry_groups.projectId = projects.projectId,
             UNNEST(projects.ancestry) AS ancestryItem
-            WHERE
+            WHERE 
                 entry_groups.createdAt = \"{target_creation_date_for_eg}\"
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
                 AND dataplexResourceName IS NOT NULL
-                AND entry_groups.managingSystem IN
-                    ({",".join([f"\"{v}\"" for v in managing_systems])})
+                AND entry_groups.managingSystem IN 
+                    ({",".join([f"\"{v}\"" for v in select_managing_systems])})
                 AND (
                     (
                         scope_type IN ("FOLDER", "ORGANIZATION")
                         AND ancestryItem.type = \"{scope["scope_type"]}\"
                         AND ancestryItem.id = \"{scope["scope_id"]}\"
                     )
-                    OR
+                    OR 
                     (
-                        scope_type = "PROJECT"
+                        scope_type = "PROJECT" 
                         AND projects.projectNumber = {scope["scope_id"]}
                     )
                 )
@@ -397,7 +400,9 @@ class BigQueryAdapter:
 
         for eg in query_result:
             try:
-                match eg.managingSystem:
+                managing_system = resource_managing_system or eg.managingSystem
+
+                match managing_system:
                     case ManagingSystem.DATA_CATALOG:
                         resource_name = eg.dataCatalogResourceName
                     case ManagingSystem.DATAPLEX:
@@ -426,7 +431,10 @@ class BigQueryAdapter:
         return entry_groups, target_creation_date_for_eg
 
     def get_tag_templates_within_scope(
-        self, scope: dict, managing_systems: list
+        self,
+        scope: dict,
+        select_managing_systems: list,
+        resource_managing_system: str = None
     ) -> tuple[list["TagTemplate"], str]:
         """
         Fetch tag templates matching scope criteria.
@@ -441,36 +449,36 @@ class BigQueryAdapter:
             projects_table_ref
         )
         query = f"""
-            DECLARE scope_type STRING;
+            DECLARE scope_type STRING; 
             SET scope_type = \"{scope["scope_type"]}\";
 
             SELECT DISTINCT
-                resourceName as dataCatalogResourceName,
+                resourceName as dataCatalogResourceName, 
                 dataplexResourceName,
                 isPubliclyReadable,
                 managingSystem
-            FROM
+            FROM 
                 `{tt_table_ref}` AS tag_templates
-            JOIN
+            JOIN 
                 `{projects_table_ref}` AS projects
-            ON
+            ON 
                 tag_templates.projectId = projects.projectId,
             UNNEST(projects.ancestry) AS ancestryItem
-            WHERE
+            WHERE 
                 tag_templates.createdAt = \"{target_creation_date_for_tt}\"
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
                 AND dataplexResourceName IS NOT NULL
-                AND tag_templates.managingSystem IN
-                    ({",".join([f"\"{v}\"" for v in managing_systems])})
+                AND tag_templates.managingSystem IN 
+                    ({",".join([f"\"{v}\"" for v in select_managing_systems])})
                 AND (
                     (
                         scope_type IN ("FOLDER", "ORGANIZATION")
                         AND ancestryItem.type = \"{scope["scope_type"]}\"
                         AND ancestryItem.id = \"{scope["scope_id"]}\"
                     )
-                    OR
+                    OR 
                     (
-                        scope_type = "PROJECT"
+                        scope_type = "PROJECT" 
                         AND projects.projectNumber = {scope["scope_id"]}
                     )
                 )
@@ -486,7 +494,9 @@ class BigQueryAdapter:
 
         for tt in query_result:
             try:
-                match tt.managingSystem:
+                managing_system = resource_managing_system or tt.managingSystem
+
+                match managing_system:
                     case ManagingSystem.DATA_CATALOG:
                         resource_name = tt.dataCatalogResourceName
                     case ManagingSystem.DATAPLEX:
@@ -589,17 +599,16 @@ class BigQueryAdapter:
 
     def check_if_table_or_view_exists(
         self, ref: bigquery.TableReference
-    ) -> bool:
+    ) -> bigquery.Table | None:
         """
         Checks if a table or view exists in BigQuery.
         """
         if isinstance(ref, str):
             ref = bigquery.TableReference.from_string(ref)
         try:
-            self._client.get_table(ref)
-            return True
+            return self._client.get_table(ref)
         except NotFound:
-            return False
+            return None
 
     @google_api_exception_shield
     def create_view_if_not_exists(
