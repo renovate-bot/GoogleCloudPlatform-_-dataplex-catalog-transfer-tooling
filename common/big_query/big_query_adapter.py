@@ -337,7 +337,10 @@ class BigQueryAdapter:
         return private_tag_templates
 
     def get_entry_groups_within_scope(
-        self, scope: dict, managing_systems: list
+        self,
+        scope: dict,
+        select_managing_systems: list,
+        resource_managing_system: str = None
     ) -> tuple[list["EntryGroup"], date]:
         """
 
@@ -372,7 +375,7 @@ class BigQueryAdapter:
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
                 AND dataplexResourceName IS NOT NULL
                 AND entry_groups.managingSystem IN 
-                    ({",".join([f"\"{v}\"" for v in managing_systems])})
+                    ({",".join([f"\"{v}\"" for v in select_managing_systems])})
                 AND (
                     (
                         scope_type IN ("FOLDER", "ORGANIZATION")
@@ -397,7 +400,9 @@ class BigQueryAdapter:
 
         for eg in query_result:
             try:
-                match eg.managingSystem:
+                managing_system = resource_managing_system or eg.managingSystem
+
+                match managing_system:
                     case ManagingSystem.DATA_CATALOG:
                         resource_name = eg.dataCatalogResourceName
                     case ManagingSystem.DATAPLEX:
@@ -426,7 +431,10 @@ class BigQueryAdapter:
         return entry_groups, target_creation_date_for_eg
 
     def get_tag_templates_within_scope(
-        self, scope: dict, managing_systems: list
+        self,
+        scope: dict,
+        select_managing_systems: list,
+        resource_managing_system: str = None
     ) -> tuple[list["TagTemplate"], str]:
         """
         Fetch tag templates matching scope criteria.
@@ -461,7 +469,7 @@ class BigQueryAdapter:
                 AND projects.createdAt = \"{target_creation_date_for_projects}\"
                 AND dataplexResourceName IS NOT NULL
                 AND tag_templates.managingSystem IN 
-                    ({",".join([f"\"{v}\"" for v in managing_systems])})
+                    ({",".join([f"\"{v}\"" for v in select_managing_systems])})
                 AND (
                     (
                         scope_type IN ("FOLDER", "ORGANIZATION")
@@ -486,7 +494,9 @@ class BigQueryAdapter:
 
         for tt in query_result:
             try:
-                match tt.managingSystem:
+                managing_system = resource_managing_system or tt.managingSystem
+
+                match managing_system:
                     case ManagingSystem.DATA_CATALOG:
                         resource_name = tt.dataCatalogResourceName
                     case ManagingSystem.DATAPLEX:

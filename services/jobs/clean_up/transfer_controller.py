@@ -26,7 +26,7 @@ from google.cloud.tasks_v2 import Task
 
 from common.big_query import BigQueryAdapter
 from common.cloud_task import CloudTaskPublisher
-from common.entities import EntryGroup, TagTemplate, ResourceTaskData
+from common.entities import EntryGroup, TagTemplate, ResourceTaskData, ManagingSystem
 from common.utils import get_logger
 
 
@@ -63,7 +63,7 @@ class TransferController:
         """
         entry_groups, tag_templates = self.fetch_resources(
             self.resource_types,
-            ["DATAPLEX"],
+            [ManagingSystem.DATAPLEX],
             self.scope,
         )
         if entry_groups is not None:
@@ -85,14 +85,14 @@ class TransferController:
         """
         entry_groups = (
             self._big_query_client.get_entry_groups_within_scope(
-                scope, managing_systems
+                scope, managing_systems, ManagingSystem.DATA_CATALOG
             )
             if "entry_group" in resource_types
             else None
         )
         tag_templates = (
             self._big_query_client.get_tag_templates_within_scope(
-                scope, managing_systems
+                scope, managing_systems, ManagingSystem.DATA_CATALOG
             )
             if "tag_template" in resource_types
             else None
