@@ -143,11 +143,6 @@ project_setup.create_job(
     "convert-private-tag-templates-job:latest",
     ["-p", config.project, "-s", config.scope]
 )
-print("Scheduler")
-project_setup.create_scheduler(
-    "convert-private-tag-templates",
-    f"0 {hour + 19} * * *"
-)
 print("Handler")
 project_setup.create_service(
     "convert-private-tag-templates-handler",

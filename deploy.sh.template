@@ -146,7 +146,6 @@ fetch_resources_hour=$((random_base_hour + 1))
 find_resource_names_hour=$((random_base_hour + 2))
 analytics_hour=$((random_base_hour + 14))
 fetch_policies_hour=$((random_base_hour + 15))
-convert_tag_templates_hour=$((random_base_hour + 18))
 
 # Define cron schedule for jobs
 declare -A JOB_SCHEDULES=(
@@ -155,7 +154,6 @@ declare -A JOB_SCHEDULES=(
  [find-resource-names-job]="0 $find_resource_names_hour * * *"
  [analytics-job]="50 $analytics_hour * * *"
  [fetch-policies-job]="0 $fetch_policies_hour * * *"
- [convert-private-tag-templates-job]="0 $convert_tag_templates_hour * * *"
 )
 
 # # ---------- Artifact Registry Auth ----------
