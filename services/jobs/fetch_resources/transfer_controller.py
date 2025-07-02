@@ -57,7 +57,7 @@ class TransferController:
             self.project, self.location, self.queue_name
         )
         self._logger = get_logger()
-        self._retry_timeout = 60 * 60 #hour
+        self._retry_timeout = 60 * 60  # hour
 
     def start_transfer(self) -> None:
         """
@@ -66,7 +66,9 @@ class TransferController:
         """
         while True:
             # Wait till the previous service finish working
-            messages = self._cloud_task_client.get_messages(queue_name="project-discovery")
+            messages = self._cloud_task_client.get_messages(
+                queue_name="project-discovery"
+            )
             if not messages:
                 break
 

@@ -27,7 +27,7 @@ def scope(s: str) -> str:
         return s
     else:
         raise argparse.ArgumentTypeError(
-            "Invalid scope format'{}'".format(s)
+            f"Invalid scope format'{s}'"
         )
 
 

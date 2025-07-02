@@ -253,7 +253,7 @@ run_audit_log_sink_job() {
     return 1
   fi
 
-  echo "Waiting for sink propagation... (2 minutes)"
+  echo "Waiting for sink propagation... (~3 minutes)"
   sleep 120
 
   echo "Retrieving sink writer identity..."

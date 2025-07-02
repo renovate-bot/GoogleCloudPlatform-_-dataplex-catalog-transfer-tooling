@@ -63,19 +63,17 @@ class TransferController:
             self.project, self.location, self.queue, max_rps=2
         )
         self._logger = get_logger()
-        self._retry_timeout = 60 * 60 #hour
+        self._retry_timeout = 60 * 60  # hour
 
     def _get_default_dataplex_quota(self) -> int:
         """
         Retrieves the default Dataplex quota for the project.
         """
-        dataplex_quota_per_min = (
-                self._quota_client.get_default_quota_value(
-                    self.project,
-                    Services.DATAPLEX,
-                    Quotas.CATALOG_MANAGEMENT_READS,
-                )
-            )
+        dataplex_quota_per_min = self._quota_client.get_default_quota_value(
+            self.project,
+            Services.DATAPLEX,
+            Quotas.CATALOG_MANAGEMENT_READS,
+        )
         dataplex_quota_per_min_per_user = (
             self._quota_client.get_default_quota_value(
                 self.project,
@@ -96,7 +94,9 @@ class TransferController:
         """
         while True:
             # Wait till the previous service finish working
-            messages = self._cloud_task_client.get_messages(queue_name="resource-discovery")
+            messages = self._cloud_task_client.get_messages(
+                queue_name="resource-discovery"
+            )
             if not messages:
                 break
 
