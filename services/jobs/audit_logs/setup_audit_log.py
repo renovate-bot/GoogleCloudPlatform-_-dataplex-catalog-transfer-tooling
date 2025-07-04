@@ -29,6 +29,7 @@ from google.cloud.logging_v2.types import (
 from google.cloud.logging_v2 import _gapic as gapic
 from google.api_core.exceptions import AlreadyExists
 
+from common.big_query import BigQueryAdapter
 from common.utils import get_logger
 
 
@@ -45,8 +46,14 @@ class AuditLogsSetup:
         """
         self.project = app_config["project_name"]
         self.dataset = app_config["dataset_name"]
+        self.dataset_location = app_config["dataset_location"]
         self.log_sink_name = app_config["log_sink_name"]
         self.logging_client = logging_v2.Client()
+        self._big_query_client = BigQueryAdapter(
+            self.project,
+            self.dataset_location,
+            self.dataset,
+        )
         self._logger = get_logger()
         self.grpc_client = gapic.make_sinks_api(client=self.logging_client)
 
@@ -56,6 +63,7 @@ class AuditLogsSetup:
         the sink already exists, it retrieves the existing sink.
         """
         try:
+            self._big_query_client.ensure_dataset_exists()
             log_sink = LogSink(
                 name=self.log_sink_name,
                 destination=(

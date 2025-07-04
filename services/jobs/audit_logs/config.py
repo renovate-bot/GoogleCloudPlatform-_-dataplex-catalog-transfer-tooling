@@ -57,6 +57,7 @@ def get_application_config() -> dict:
     return {
         "project_name": args.project,
         "dataset_name": args.dataset_name,
+        "dataset_location": args.dataset_location,
         "log_sink_name": args.log_sink_name,
     }
 

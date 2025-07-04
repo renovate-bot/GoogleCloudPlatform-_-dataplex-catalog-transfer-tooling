@@ -21,7 +21,7 @@ Classes:
 - TransferController: A controller class for managing the transfer of tag
   templates and entry groups from the Data Catalog to BigQuery.
 """
-
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from google.api_core.exceptions import GoogleAPICallError
@@ -63,18 +63,17 @@ class TransferController:
             self.project, self.location, self.queue, max_rps=2
         )
         self._logger = get_logger()
+        self._retry_timeout = 60 * 60  # hour
 
     def _get_default_dataplex_quota(self) -> int:
         """
         Retrieves the default Dataplex quota for the project.
         """
-        dataplex_quota_per_min = (
-                self._quota_client.get_default_quota_value(
-                    self.project,
-                    Services.DATAPLEX,
-                    Quotas.CATALOG_MANAGEMENT_READS,
-                )
-            )
+        dataplex_quota_per_min = self._quota_client.get_default_quota_value(
+            self.project,
+            Services.DATAPLEX,
+            Quotas.CATALOG_MANAGEMENT_READS,
+        )
         dataplex_quota_per_min_per_user = (
             self._quota_client.get_default_quota_value(
                 self.project,
@@ -93,6 +92,20 @@ class TransferController:
         Initiates the data transfer process by fetching resources
         from tables and creating tasks
         """
+        while True:
+            # Wait till the previous service finish working
+            messages = self._cloud_task_client.get_messages(
+                queue_name="resource-discovery"
+            )
+            if not messages:
+                break
+
+            self._logger.warning(
+                f"Previous service (fetch resources) is still working. "
+                f"Waiting {self._retry_timeout} seconds to retry"
+            )
+            time.sleep(self._retry_timeout)
+
         self._setup_tables_and_views()
 
         entry_groups, tag_templates = self.fetch_resources()

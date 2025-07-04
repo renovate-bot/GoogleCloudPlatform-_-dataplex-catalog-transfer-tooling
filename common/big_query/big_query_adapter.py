@@ -555,17 +555,18 @@ class BigQueryAdapter:
         """
         return f"{self._project}.{self._dataset_name}.{table_name}"
 
-    def _ensure_dataset_exists(self) -> bigquery.Dataset:
+    def ensure_dataset_exists(self) -> bigquery.Dataset:
         """
         Retrieves the dataset, creating it if it does not exist.
         """
         dataset_ref = self._get_dataset_ref()
         try:
-            return self._client.get_dataset(dataset_ref)
+            self._client.get_dataset(dataset_ref)
         except NotFound:
             dataset = bigquery.Dataset(dataset_ref)
             dataset.location = self._dataset_location
-            return self._client.create_dataset(dataset)
+            self._client.create_dataset(dataset)
+            time.sleep(60)
 
     @google_api_exception_shield
     def create_table_if_not_exists(
@@ -578,7 +579,7 @@ class BigQueryAdapter:
         if isinstance(table_ref, str):
             table_ref = bigquery.TableReference.from_string(table_ref)
 
-        self._ensure_dataset_exists()
+        self.ensure_dataset_exists()
 
         try:
             return self._client.get_table(table_ref)
@@ -621,7 +622,7 @@ class BigQueryAdapter:
         if isinstance(view_ref, str):
             view_ref = bigquery.TableReference.from_string(view_ref)
 
-        self._ensure_dataset_exists()
+        self.ensure_dataset_exists()
 
         try:
             view = self._client.get_table(view_ref)
