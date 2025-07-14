@@ -1,9 +1,0 @@
-steps:
-- name: "gcr.io/cloud-builders/docker"
-  args:
-  - build
-  - "--tag=us-central1-docker.pkg.dev/hl2-gogl-dapx-t1iylu/fetch-resources/handler"
-  - "--file=./services/handlers/fetch_resources/Dockerfile"
-  - .
-images:
-  - "us-central1-docker.pkg.dev/hl2-gogl-dapx-t1iylu/fetch-resources/handler"

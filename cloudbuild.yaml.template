@@ -1,0 +1,153 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+substitutions:
+  _PROJECT: <project-name> (e.g. "my-google-project")
+  _LOCATION: "us-central1"
+
+steps:
+# Build all handlers
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-projects-handler:latest"
+  - "--file=./services/handlers/fetch_projects/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-resources-handler:latest"
+  - "--file=./services/handlers/fetch_resources/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/find-resource-names-handler:latest"
+  - "--file=./services/handlers/find_resource_names/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-policies-handler:latest"
+  - "--file=./services/handlers/fetch_policies/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/convert-private-tag-templates-handler:latest"
+  - "--file=./services/handlers/convert_private_tag_templates/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/transfer-resources-handler:latest"
+  - "--file=./services/handlers/transfer_resources/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/clean-up-handler:latest"
+  - "--file=./services/handlers/clean_up/Dockerfile"
+  - .
+
+# Build all jobs
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-projects-job:latest"
+  - "--file=./services/jobs/fetch_projects/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-resources-job:latest"
+  - "--file=./services/jobs/fetch_resources/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/find-resource-names-job:latest"
+  - "--file=./services/jobs/find_resource_names/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/audit-logs-job:latest"
+  - "--file=./services/jobs/audit_logs/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-policies-job:latest"
+  - "--file=./services/jobs/fetch_policies/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/convert-private-tag-templates-job:latest"
+  - "--file=./services/jobs/convert_private_tag_templates/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/transfer-resources-job:latest"
+  - "--file=./services/jobs/transfer_resources/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/clean-up-job:latest"
+  - "--file=./services/jobs/clean_up/Dockerfile"
+  - .
+
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/analytics-job:latest"
+  - "--file=./services/jobs/analytics/Dockerfile"
+  - .
+
+images:
+# Images for handlers
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-projects-handler"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-resources-handler"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/find-resource-names-handler"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-policies-handler"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/convert-private-tag-templates-handler"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/transfer-resources-handler"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/clean-up-handler"
+
+# Images for jobs
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-projects-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-resources-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/find-resource-names-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/audit-logs-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-policies-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/convert-private-tag-templates-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/transfer-resources-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/clean-up-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/analytics-job"
