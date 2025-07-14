@@ -24,6 +24,12 @@ You will also receive a mapping table showing the relation between Data Catalog 
 ## Transfer at scale
 You can convert from private to public tag templates and initiate transfer of all resources at scale.
 
+## Clean up
+You can remove remaining read-only tag templates and read-only entry groups from Data Catalog after the transfer.
+
+## Monitoring dashboard
+You can monitor transfer progress through dedicated [looker dashboard](https://lookerstudio.google.com/c/reporting/25294b6e-724a-46f2-98c4-3e22d8e59d87/page/crPZE).
+
 # Get Started: Pick Your Path
 There are three ways to get started — choose what works best for you and follow the instructions below:
 - **Automated Public Repository Deploy**: Deploy directly from a public repository using pre-built images.
@@ -230,7 +236,7 @@ container arguments
 ## analytics-job
 1) Create a Cloud Run job
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/analytics:latest``` image
-3) In the Container section, use ```python3 main.py``` container command and ```-p <work_project_id>``` 
+3) In the Container section, use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 4) In the Security section, select the Service Account you've created
 ## convert-private-tag-templates-job
@@ -334,6 +340,11 @@ Before proceeding, ensure that data access logs are enabled for your project. Th
    > **Note:** This step is necessary to proceed and successfully launch the **analytics-job**.
 6) After finishing, launch analytics-job
 7) All data will appear in ```transfer_tooling``` dataset in Google BigQuery
+
+# Monitor progress
+1) Open [looker dashboard](https://lookerstudio.google.com/c/reporting/25294b6e-724a-46f2-98c4-3e22d8e59d87/page/crPZE)
+2) Select "More options" and choose Make a copy"
+3) Replace data source with your project
 
 # Transfer
 1) [Optional] Adjust scope parameter of ```convert-private-tag-templates-job``` and run it to convert all private tag templates within given scope to public tag templates
