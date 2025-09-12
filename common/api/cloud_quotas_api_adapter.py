@@ -32,6 +32,7 @@ class Services(StrEnum):
 
     DATAPLEX = "dataplex.googleapis.com"
     DATA_CATALOG = "datacatalog.googleapis.com"
+    CLOUD_ASSET = "cloudasset.googleapis.com"
 
 
 class Quotas(StrEnum):
@@ -49,6 +50,11 @@ class Quotas(StrEnum):
     CATALOG_MANAGEMENT_PER_USER_READS = (
         "CatalogManagementReadsPerMinutePerProjectPerUserPerRegion"
     )
+    METADATA_WRITES = "CatalogMetadataWritesPerMinutePerProjectPerRegion"
+    METADATA_LIST_REQUESTS = (
+        "MetadataListRequestsPerMinutePerProjectPerUserPerRegion"
+    )
+    ASSET_LIST = "listAssetsQpmPerProject"
 
 
 class QuotaInfoAdapter:
@@ -64,7 +70,7 @@ class QuotaInfoAdapter:
         self._logger = get_logger()
 
     def get_default_quota_value(
-        self, project: str, service: str, quota: str
+        self, project: str, service: str, quota: str, per_min: bool = False
     ) -> int | None:
         """
         Get the quota value for a specific quota and region.
@@ -93,7 +99,12 @@ class QuotaInfoAdapter:
             dimension_info.details.value
             for dimension_info in response.dimensions_infos
         ]
-        quota_value = ceil(min(quota_values) / 60)
+
+        if per_min:
+            quota_value = min(quota_values)
+        else:
+            quota_value = ceil(min(quota_values) / 60)
+
         return quota_value
 
     def list_all_quotas_for_service(self, project: str, service: str) -> list:

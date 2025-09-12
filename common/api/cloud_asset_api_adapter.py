@@ -23,8 +23,10 @@ Classes:
   with the Data Catalog API.
 """
 
+from typing import Generator
 from google.api_core.exceptions import PermissionDenied
 from google.cloud import asset
+from google.cloud.asset_v1 import ListAssetsRequest
 from google.cloud.asset_v1.services.asset_service.pagers import (
     SearchAllResourcesPager,
 )
@@ -60,7 +62,7 @@ class CloudAssetApiAdapter:
         return list(map(Project.proto_to_project, response))
 
     def _search(
-        self, scope: str, asset_types: list[str], query: str
+        self, scope: str, asset_types: list[str], query: str = None
     ) -> SearchAllResourcesPager:
         """
         Performs a search in the Assets with the specified scope and query.
@@ -74,3 +76,45 @@ class CloudAssetApiAdapter:
                 f"Not enough permissions for scope {scope} "
                 f"or scope doesn't exists"
             ) from e
+
+    def fetch_zones(self, parent: str) -> list:
+        """
+        Fetches all Dataplex zones within the specified parent scope.
+        """
+        asset_types = ["dataplex.googleapis.com/Zone"]
+
+        response = list(self._search(parent, asset_types))
+        return list(
+            map(
+                lambda msg: msg.name.replace("//dataplex.googleapis.com/", ""),
+                response,
+            )
+        )
+
+    def find_assets(
+        self, parent: str, rate_limiter: Generator, page_size: int = 1000
+    ) -> Generator[list]:
+        """
+        Find all specified assets within the specified parent scope.
+        """
+        asset_types = ["dataplex.googleapis.com/Asset"]
+        request = ListAssetsRequest(
+            parent=parent, asset_types=asset_types, page_size=page_size
+        )
+
+        response = self._client.list_assets(request=request)
+
+        for page in response.pages:
+            tmp_res = list(
+                map(
+                    lambda msg: {
+                        "fqn": msg.name.replace(
+                            "//dataplex.googleapis.com/", ""
+                        ),
+                        "type": "ASSET",
+                    },
+                    page.assets,
+                )
+            )
+            yield tmp_res
+            next(rate_limiter)

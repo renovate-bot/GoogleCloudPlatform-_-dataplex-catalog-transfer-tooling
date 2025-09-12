@@ -30,6 +30,15 @@ You can remove remaining read-only tag templates and read-only entry groups from
 ## Monitoring dashboard
 You can monitor transfer progress through dedicated [looker dashboard](https://lookerstudio.google.com/c/reporting/25294b6e-724a-46f2-98c4-3e22d8e59d87/page/crPZE).
 
+## Lakes and zones search functionality  
+The tooling restores the ability to search Dataplex Tables within specific Lakes and Zones. This functionality, previously available in Data Catalog, is now supported in Dataplex Catalog.
+> To search for resources associated with a specific Lake or Zone, use the following syntax:   
+> ```
+> aspect:<aspect-type-project-id>.global.lake-details.lake=<lake_id>
+>
+> aspect:<aspect-type-project-id>.global.lake-details.zone=<zone_id>
+> ```
+
 # Get Started: Pick Your Path
 There are three ways to get started — choose what works best for you and follow the instructions below:
 - **Automated Public Repository Deploy**: Deploy directly from a public repository using pre-built images.
@@ -48,9 +57,12 @@ There are three ways to get started — choose what works best for you and follo
    * roles/datacatalog.searchAdmin
    * roles/datacatalog.tagTemplateOwner
    * roles/datacatalog.entryGroupOwner
+   * roles/datacatalog.entryViewer
    * roles/serviceusage.serviceUsageConsumer
    * roles/dataplex.aspectTypeOwner
    * roles/dataplex.entryGroupOwner
+   * roles/dataplex.catalogEditor
+   * roles/dataplex.metadataReader
    * roles/logging.configWriter
    * roles/iam.securityReviewer
    * roles/run.invoker
@@ -58,6 +70,7 @@ There are three ways to get started — choose what works best for you and follo
    * roles/iam.serviceAccountUser
    * roles/cloudquotas.viewer
    * roles/bigquery.jobUser
+   * roles/resourcemanager.organizationAdmin
 4) Enable API:\
    Depending on your chosen workflow, enable the required APIs as outlined below:
    * For **Automated Build & Deploy**:
@@ -133,6 +146,8 @@ Run the following command to clone the repository:
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/convert-private-tag-templates-job:latest -f ./services/jobs/convert_private_tag_templates/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/clean-up-job:latest -f ./services/jobs/clean_up/Dockerfile .
     docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/clean-up-handler:latest -f ./services/handlers/clean_up/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/lakes-handler:latest -f ./services/handlers/lakes_transfer/Dockerfile .
+    docker build -t <location>-docker.pkg.dev/<work_project_id>/<repo_id>/lakes-job:latest -f ./services/jobs/lakes_transfer/Dockerfile .
     ```
     Where
    * work_project_id - ID of the project you've created for this tool
@@ -156,6 +171,8 @@ Run the following command to clone the repository:
    docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/transfer-resources-job:latest
    docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/clean-up-job:latest
    docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/clean-up-handler:latest
+   docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/lakes-handler:latest
+   docker push <location>-docker.pkg.dev/<work_project_id>/<repo_id>/lakes-job:latest
    ```
 # Deploy
 ## For **Automated Public Repository Deploy** and **Automated Build & Deploy**
@@ -179,6 +196,7 @@ Run the following command to clone the repository:
    ```bash
    SCOPE="organizations/{orgNumber}"  # Replace with your organization, folder or project number
    SERVICE_ACCOUNT="your-service-account@your-project.iam.gserviceaccount.com"  # Replace with your service account
+   ASPECT_TYPE_PROJECT_ID="aspect-type-project-id" # The project ID where the process will create the 3P aspect type to store references to lakes and zones.
    ```
 #### Step 3: (Optional) Configure Additional Parameters
 - Update the following variables if needed:
@@ -262,6 +280,15 @@ container arguments
 4) Set up scope of fetching with ```-s <scope>``` flag. Scope should be in format ```organizations/{orgNumber}```, ```folders/{folderNumber}``` or ```projects/{projectNumber}```
 5) You can set up resource type using ```-rt entry_group|tag_template|both``` flag
 6) In Security section select the Service Account you've created
+## lakes-job
+1) Create Cloud Run job
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/lakes-job:latest``` image
+3) In Container section use ```python3 main.py``` container command and ```-p <work_project_id> -atp <aspect-type-project-id>``` container arguments
+   > **Important:** The `aspect_type_project_id` must be different from `work_project_id` to ensure proper separation of tooling resources and metadata storage.
+4) [Optional] Adjust quota consumption with ```-qc <value>``` container argument to control API request rates:
+   - default: 20%
+   - maximum: 90% to prevent API rate limit issues
+5) In Security section select the Service Account you've created
 ## fetch-projects-handler
 1) Create a Cloud Run service
 2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/fetch-projects-handler:latest``` image
@@ -325,6 +352,14 @@ container arguments
 6) In Container section use ```python3 main.py``` container command and ```-p <work_project_id>```
 container arguments
 7) In Security section select the Service Account you've created
+## lakes-handler
+1) Create Cloud Run service
+2) Select ```<location>-docker.pkg.dev/<work_project_id>/<repo_id>/lakes-handler:latest``` image
+3) Service name ```lakes-handler``` (Cloud tasks will target this name)
+4) location ```us-central1```
+5) Authentication - Require authentication
+6) In Container section use ```python3 main.py``` container command.
+7) In Security section select the Service Account you've created
 
 # Gather data
 ## For **Automated Build & Deploy** and **Automated Public Repository Deploy**:
@@ -335,15 +370,16 @@ Before proceeding, ensure that data access logs are enabled for your project. Th
 2) After finishing, launch fetch-resources-job
 3) After finishing, launch find-resource-names-job
 4) After finishing, launch fetch-policies-job
-5) Launch audit-logs-job to see Data Catalog access logs.
+5) Launch audit-logs-job to see Data Catalog access logs
    * Ensure log sink permissions are granted and data access logs are enabled. Follow the [Grant Log Sink Permissions to Write to BigQuery Table and Enable Data Access Logs guide](services/jobs/audit_logs/README.md).
    > **Note:** This step is necessary to proceed and successfully launch the **analytics-job**.
 6) After finishing, launch analytics-job
 7) All data will appear in ```transfer_tooling``` dataset in Google BigQuery
+8) After finishing, launch lakes-job
 
 # Monitor progress
 1) Open [looker dashboard](https://lookerstudio.google.com/c/reporting/25294b6e-724a-46f2-98c4-3e22d8e59d87/page/crPZE)
-2) Select "More options" and choose Make a copy"
+2) Select "More options" and choose "Make a copy"
 3) Replace data source with your project
 
 # Transfer

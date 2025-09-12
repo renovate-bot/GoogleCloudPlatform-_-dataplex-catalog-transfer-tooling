@@ -17,7 +17,9 @@ This module provides essential tools for command-line interface operations
 and logging setup.
 """
 
+from time import time, sleep
 import logging
+from typing import Generator
 from argparse import ArgumentParser, ArgumentTypeError
 
 
@@ -106,3 +108,25 @@ def get_logger() -> logging.Logger:
     )
     logger = logging.getLogger()
     return logger
+
+
+def rate_limiter(request_limit: int, time_window: int = 60) -> Generator:
+    """
+    A generator-based rate limiter that ensures a maximum number
+    of requests are made within a specified time window.
+    """
+    start_time = time()
+    requests_made = 0
+
+    while True:
+        if requests_made >= request_limit:
+            cur_time = time()
+            refresh_time = start_time + time_window
+            wait_time = refresh_time - cur_time
+            if wait_time > 0:
+                sleep(wait_time)
+            start_time = time()
+            requests_made = 0
+
+        requests_made += 1
+        yield True

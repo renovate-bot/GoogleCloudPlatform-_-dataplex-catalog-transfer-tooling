@@ -67,6 +67,13 @@ steps:
   - "--file=./services/handlers/clean_up/Dockerfile"
   - .
 
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/lakes-handler:latest"
+  - "--file=./services/handlers/lakes_transfer/Dockerfile"
+  - .
+
 # Build all jobs
 - name: "gcr.io/cloud-builders/docker"
   args:
@@ -131,6 +138,13 @@ steps:
   - "--file=./services/jobs/analytics/Dockerfile"
   - .
 
+- name: "gcr.io/cloud-builders/docker"
+  args:
+  - build
+  - "--tag=${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/lakes-job:latest"
+  - "--file=./services/jobs/lakes_transfer/Dockerfile"
+  - .
+
 images:
 # Images for handlers
 - "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-projects-handler"
@@ -140,6 +154,7 @@ images:
 - "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/convert-private-tag-templates-handler"
 - "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/transfer-resources-handler"
 - "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/clean-up-handler"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/lakes-handler"
 
 # Images for jobs
 - "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/fetch-projects-job"
@@ -151,3 +166,4 @@ images:
 - "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/transfer-resources-job"
 - "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/clean-up-job"
 - "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/analytics-job"
+- "${_LOCATION}-docker.pkg.dev/${_PROJECT}/dataplex-transfer-tooling/lakes-job"
