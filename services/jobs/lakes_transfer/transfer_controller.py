@@ -120,10 +120,20 @@ class TransferController:
         )
         asset_limiter = rate_limiter(request_limit=asset_requests)
 
+        dataplex_mgmt_requests = self._get_allowed_requests(
+            Services.DATAPLEX, Quotas.MANAGEMENT_READS
+        )
+        dataplex_mgmt_limiter = rate_limiter(
+            request_limit=dataplex_mgmt_requests
+        )
+
         self._logger.info(
             f"Cloud storage entities limiter: {cloud_storage_requests} req/min"
         )
         self._logger.info(f"Asset limiter: {asset_requests} req/min")
+        self._logger.info(
+            f"Dataplex management limiter: {dataplex_mgmt_requests} req/min"
+        )
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             for entity_page in self.cloud_storage_entities(
@@ -132,7 +142,19 @@ class TransferController:
                 executor.submit(self.create_cloud_tasks, entity_page)
 
             for asset_page in self.big_query_assets(asset_limiter):
-                executor.submit(self.create_cloud_tasks, asset_page)
+                bigquery_assets = []
+                for asset in asset_page:
+                    dataset_asset_path = self._dataplex_adapter.get_bq_asset(
+                        asset["fqn"], dataplex_mgmt_limiter
+                    )
+                    if dataset_asset_path:
+                        asset["data_path"] = dataset_asset_path
+                        bigquery_assets.append(asset)
+                    else:
+                        self._logger.info(
+                            f"Asset {asset["fqn"]} is not a BIGQUERY_DATASET."
+                        )
+                executor.submit(self.create_cloud_tasks, bigquery_assets)
 
     def create_aspect_type(self):
         """

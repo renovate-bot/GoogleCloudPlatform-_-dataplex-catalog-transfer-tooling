@@ -30,7 +30,8 @@ import google.auth as auth
 import google.cloud.dataplex as dataplex
 import google.cloud.dataplex_v1.types as dataplex_types
 from google.cloud import dataplex_v1
-from google.api_core.exceptions import NotFound
+from google.api_core import retry
+from google.api_core.exceptions import NotFound, ResourceExhausted
 from google.api_core.gapic_v1.client_info import ClientInfo
 from google.protobuf import struct_pb2
 from google.cloud.dataplex_v1 import AspectType
@@ -246,12 +247,24 @@ class DataplexApiAdapter:
             )
             raise e
 
-    def get_bq_asset(self, fqn: str) -> str | None:
+    def get_bq_asset(self, fqn: str, limiter: Generator) -> str | None:
         """
         Retrieves the BigQuery dataset name from a Dataplex asset
         if it's a BigQuery dataset.
         """
-        asset = self._dataplex_service_client.get_asset(name=fqn)
+        next(limiter)
+
+        retry_policy = retry.Retry(
+            predicate=retry.if_exception_type(ResourceExhausted),
+            initial=20.0,
+            maximum=60.0,
+            multiplier=1.5,
+            deadline=300.0,
+        )
+
+        asset = self._dataplex_service_client.get_asset(
+            name=fqn, retry=retry_policy
+        )
         resource_type = asset.resource_spec.type_
         if (
             resource_type

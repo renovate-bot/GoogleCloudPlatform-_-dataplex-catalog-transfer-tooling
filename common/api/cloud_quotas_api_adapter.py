@@ -55,6 +55,9 @@ class Quotas(StrEnum):
         "MetadataListRequestsPerMinutePerProjectPerUserPerRegion"
     )
     ASSET_LIST = "listAssetsQpmPerProject"
+    MANAGEMENT_READS = (
+        "ManagementReadRequestsPerMinutePerProjectPerUserPerRegion"
+    )
 
 
 class QuotaInfoAdapter:

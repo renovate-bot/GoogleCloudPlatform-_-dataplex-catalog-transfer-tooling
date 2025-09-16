@@ -113,4 +113,4 @@ class DataplexEntries(BaseModel):
     aspect_type_project: str
     type: str
     fqn: str
-    data_path: Optional[str] = None
+    data_path: str

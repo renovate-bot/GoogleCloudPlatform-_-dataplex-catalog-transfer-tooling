@@ -49,16 +49,7 @@ class CloudTaskHandler:
             case "TABLE":
                 self.handle_table_entity(task_data)
             case "ASSET":
-                dataset_asset_path = self._dataplex_client.get_bq_asset(
-                    task_data.fqn
-                )
-                if dataset_asset_path:
-                    task_data.data_path = dataset_asset_path
-                    self.handle_bigquery_dataset(task_data)
-                else:
-                    self._logger.info(
-                        f"Asset {task_data.fqn} is not a BIGQUERY_DATASET."
-                    )
+                self.handle_bigquery_dataset(task_data)
             case _:
                 raise ValueError(f"Unknown entry type: {task_data.type}")
 
