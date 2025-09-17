@@ -57,7 +57,6 @@ There are three ways to get started — choose what works best for you and follo
    * roles/datacatalog.searchAdmin
    * roles/datacatalog.tagTemplateOwner
    * roles/datacatalog.entryGroupOwner
-   * roles/datacatalog.entryViewer
    * roles/serviceusage.serviceUsageConsumer
    * roles/dataplex.aspectTypeOwner
    * roles/dataplex.entryGroupOwner
@@ -70,7 +69,6 @@ There are three ways to get started — choose what works best for you and follo
    * roles/iam.serviceAccountUser
    * roles/cloudquotas.viewer
    * roles/bigquery.jobUser
-   * roles/resourcemanager.organizationAdmin
 4) Enable API:\
    Depending on your chosen workflow, enable the required APIs as outlined below:
    * For **Automated Build & Deploy**:
