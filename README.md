@@ -203,6 +203,11 @@ Run the following command to clone the repository:
    REGISTRY="us-central1-docker.pkg.dev/<project-id>/<repo-id>"  # Docker registry for images
    ```
    > **Note:** If you want to deploy using your own private Docker registry, update the `REGISTRY` value in the deployment script.
+### Set the Project
+- Before running the deployment, configure the transfer tooling project by running the following command:
+   ```bash
+   gcloud config set project <projectId>
+   ```
 ### Make the Script Executable
 - Run the following command in the Cloud Shell terminal to ensure the file is executable:
    ```bash

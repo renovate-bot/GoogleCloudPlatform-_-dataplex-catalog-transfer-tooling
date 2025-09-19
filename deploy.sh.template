@@ -48,12 +48,31 @@ ASPECT_TYPE_PROJECT_ID=<aspect-type-project-id>
 
 # Optional parameters: These can be left unchanged or modified as needed.
 REGION="us-central1"  # Default region for deployment
-PROJECT_ID=$(gcloud config get-value project)  # Automatically fetches the current GCP project
 # This repository stores public Docker images. To use your own registry, update the value below.
 # Format: REGISTRY="<registry-domain>/<project>/<repository>"
 # You can build the images using the provided cloudbuild.yaml file.
 REGISTRY="us-docker.pkg.dev/dataplex-transfer-tooling/dataplex-transfer-tooling"  # Docker registry for images
 SINK_NAME="data-catalog-audit-logs"  # Sink name for audit logs
+
+# ---------- Get Project ID ----------
+echo "Getting current GCP project..."
+PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+
+# Check if PROJECT_ID was successfully retrieved
+if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "(unset)" || "$PROJECT_ID" == "None" ]]; then
+  echo ""
+  echo "❌ Error: Failed to get current GCP project ID."
+  echo ""
+  echo "Please set an active project using:"
+  echo "   gcloud config set project {projectId}"
+  echo ""
+  echo "Replace {projectId} with your actual project ID."
+  echo "This project will be used for transfer tooling deployment."
+  echo ""
+  exit 1
+fi
+
+echo "✅ Using project: $PROJECT_ID (project used for transfer tooling)"
 
 DEBUG=false
 FAILED_ACTIONS=()
