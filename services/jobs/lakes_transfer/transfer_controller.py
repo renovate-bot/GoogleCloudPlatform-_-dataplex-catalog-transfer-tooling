@@ -179,7 +179,7 @@ class TransferController:
                     "constraints": {"required": True},
                     "annotations": {
                         "display_name": "Dataplex Lake",
-                        "description": "Full resource name of Dataplex Lake",
+                        "description": "Name of Dataplex Lake",
                     },
                 },
                 {
@@ -189,7 +189,7 @@ class TransferController:
                     "constraints": {"required": True},
                     "annotations": {
                         "display_name": "Dataplex Zone",
-                        "description": "Full resource name of Dataplex Zone",
+                        "description": "Name of Dataplex Zone",
                     },
                 },
             ],
