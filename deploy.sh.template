@@ -246,6 +246,14 @@ for IMAGE in "${!IMAGES_ARGS[@]}"; do
         SCHEDULE="${JOB_SCHEDULES[$IMAGE]}"
         echo "Cloud Scheduler for $IMAGE → $SCHEDULE"
 
+        # Check if scheduler exists and delete if found
+        if gcloud scheduler jobs describe "$IMAGE-schedule" --location="$REGION" >/dev/null 2>&1; then
+            echo "Deleted older scheduler: $IMAGE-schedule"
+            gcloud scheduler jobs delete "$IMAGE-schedule" \
+                --location="$REGION" \
+                --quiet >/dev/null 2>&1
+        fi
+    
         try gcloud scheduler jobs create http "$IMAGE-schedule" \
         --schedule="$SCHEDULE" \
         --uri="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/$IMAGE:run" \
@@ -254,7 +262,7 @@ for IMAGE in "${!IMAGES_ARGS[@]}"; do
         --location="$REGION" \
         --message-body="{}" \
         --time-zone="UTC" \
-        --attempt-deadline="300s" || echo "Scheduler may already exist, skipping"
+        --attempt-deadline="300s" || DEPLOYMENT_FAILED=true
     fi
   else
     echo "Deploying $IMAGE as a Cloud Run **Service**..."
@@ -324,6 +332,8 @@ if [[ ${#FAILED_ACTIONS[@]} -eq 0 ]]; then
  echo "   Enable Data Access Logs via the Google Cloud Console:"
  echo "   - Go to the Audit Logs page in the Google Cloud Console."
  echo "   - Locate 'Data Catalog' in the Service column of the Data Access audit logs configuration table."
+ echo "   - **Important**: Make sure you are at the ORGANIZATION level (not project level)."
+ echo "   - Select your organization from the project/organization picker at the top."
  echo "   - Click on 'Data Catalog' to open the configuration panel."
  echo "   - In the 'Log Types' tab, select the Data Access audit log types you want to enable:"
  echo "     - DATA_READ"
@@ -337,6 +347,9 @@ if [[ ${#FAILED_ACTIONS[@]} -eq 0 ]]; then
  echo "     - DATA_WRITE"
  echo "   - Click 'Done'."
  echo "   - Click 'Save'."
+ echo ""
+ echo "   Note: Organization-level audit logs ensure comprehensive coverage across all projects"
+ echo "   and prevent the need to configure audit logs individually for each project."
  echo ""
 else
  echo "🙀 The following operations failed:"
