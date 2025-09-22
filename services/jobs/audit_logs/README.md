@@ -53,25 +53,27 @@ This guide explains how to grant a log sink the necessary permissions to write t
 
 ---
 
-## **Enable Data Access Logs**
+## **Enable Data Access Logs at Organization Level**
 
 ### **Via Google Cloud Console (UI)**
 
 1. In the Google Cloud Console, go to the **Audit Logs** page.
-2. In the **Data Access audit logs configuration** table, locate **Data Catalog** in the **Service** column.
-3. Click on **Data Catalog** to open the configuration panel.
-4. In the **Log Types** tab, select the Data Access audit log types you want to enable:
+2. **Important:** Select your organization from the project/organization picker at the top.
+   > **Note:** Organization-level audit logs ensure comprehensive coverage across all projects and prevent the need to configure audit logs individually for each project.
+3. In the **Data Access audit logs configuration** table, locate **Data Catalog** in the **Service** column.
+4. Click on **Data Catalog** to open the configuration panel.
+5. In the **Log Types** tab, select the Data Access audit log types you want to enable:
    - **DATA_READ**
    - **DATA_WRITE**
    - **ADMIN_READ**
-5. Go to the **Exempted Principals** tab in the information panel.
-6. Click **Add exempted principal** and add the service account used by transfer tooling to improve log readability (e.g., `service-account@project-id.iam.gserviceaccount.com`).
-7. In the **Disabled permission types** section for the exempted principal, select audit log types that you want to disable:
+6. Go to the **Exempted Principals** tab in the information panel.
+7. Click **Add exempted principal** and add the service account used by transfer tooling to improve log readability (e.g., `service-account@project-id.iam.gserviceaccount.com`).
+8. In the **Disabled permission types** section for the exempted principal, select audit log types that you want to disable:
    - **ADMIN_READ**
    - **DATA_READ**
    - **DATA_WRITE**
-8. Click **Done**.
-9. Click **Save**.
+9. Click **Done**.
+10. Click **Save**.
 
 > **Note:** Enabling Data Access logs via the UI is safer because it ensures that existing policies are preserved. Using Cloud Shell may unintentionally override existing configurations.
 

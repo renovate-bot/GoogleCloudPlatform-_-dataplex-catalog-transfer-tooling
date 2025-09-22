@@ -25,8 +25,8 @@ fi
 
 
 # ---------- Configuration ----------
-# Mandatory parameters: SCOPE and SERVICE_ACCOUNT
-# These two parameters must be explicitly set before running the script.
+# Mandatory parameters: SCOPE, SERVICE_ACCOUNT and ASPECT_TYPE_PROJECT_ID
+# These three parameters must be explicitly set before running the script.
 
 # SCOPE: Defines the scope of projects for the process.
 # Should be formatted as:
@@ -40,14 +40,39 @@ SCOPE=<projects/{projectNumber}>
 #   SERVICE_ACCOUNT="your-service-account@your-project.iam.gserviceaccount.com"
 SERVICE_ACCOUNT=<your-service-account@your-project.iam.gserviceaccount.com>
 
+# ASPECT_TYPE_PROJECT_ID: The project ID where the process should create the 3P aspect type.
+# This project will be used to store references to the lake and zone.
+# Example format:
+#   ASPECT_TYPE_PROJECT_ID="aspect-type-project-id"
+ASPECT_TYPE_PROJECT_ID=<aspect-type-project-id>
+
 # Optional parameters: These can be left unchanged or modified as needed.
 REGION="us-central1"  # Default region for deployment
-PROJECT_ID=$(gcloud config get-value project)  # Automatically fetches the current GCP project
 # This repository stores public Docker images. To use your own registry, update the value below.
 # Format: REGISTRY="<registry-domain>/<project>/<repository>"
 # You can build the images using the provided cloudbuild.yaml file.
 REGISTRY="us-docker.pkg.dev/dataplex-transfer-tooling/dataplex-transfer-tooling"  # Docker registry for images
 SINK_NAME="data-catalog-audit-logs"  # Sink name for audit logs
+
+# ---------- Get Project ID ----------
+echo "Getting current GCP project..."
+PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+
+# Check if PROJECT_ID was successfully retrieved
+if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "(unset)" || "$PROJECT_ID" == "None" ]]; then
+  echo ""
+  echo "❌ Error: Failed to get current GCP project ID."
+  echo ""
+  echo "Please set an active project using:"
+  echo "   gcloud config set project {projectId}"
+  echo ""
+  echo "Replace {projectId} with your actual project ID."
+  echo "This project will be used for transfer tooling deployment."
+  echo ""
+  exit 1
+fi
+
+echo "✅ Using project: $PROJECT_ID (project used for transfer tooling)"
 
 DEBUG=false
 FAILED_ACTIONS=()
@@ -111,6 +136,7 @@ declare -A IMAGES_ARGS=(
   [convert-private-tag-templates-handler]="$BASE_ARGS"
   [transfer-resources-handler]="$BASE_ARGS"
   [clean-up-handler]="main.py"
+  [lakes-handler]="main.py"
 
   [fetch-projects-job]="$BASE_ARGS"
   [fetch-resources-job]="$BASE_ARGS"
@@ -121,6 +147,7 @@ declare -A IMAGES_ARGS=(
   [transfer-resources-job]="$BASE_ARGS -s $SCOPE"
   [clean-up-job]="$BASE_ARGS -s $SCOPE"
   [analytics-job]="$BASE_ARGS"
+  [lakes-job]="$BASE_ARGS -atp $ASPECT_TYPE_PROJECT_ID"
 )
 
 # Custom memory for job
@@ -136,6 +163,12 @@ declare -A JOB_TIMEOUTS=(
   [fetch-policies-job]=7200
   [convert-private-tag-templates-job]=3600
   [transfer-resources-job]=7200
+  [lakes-job]=14400
+)
+
+# Custom CPU for job
+declare -A JOB_CPU=(
+  [lakes-job]=2
 )
 
 # Random base hour and job schedule calculation
@@ -146,6 +179,7 @@ fetch_resources_hour=$((random_base_hour + 1))
 find_resource_names_hour=$((random_base_hour + 2))
 analytics_hour=$((random_base_hour + 14))
 fetch_policies_hour=$((random_base_hour + 15))
+lakes_hour=$((RANDOM % 24))
 
 # Define cron schedule for jobs
 declare -A JOB_SCHEDULES=(
@@ -154,6 +188,7 @@ declare -A JOB_SCHEDULES=(
  [find-resource-names-job]="0 $find_resource_names_hour * * *"
  [analytics-job]="50 $analytics_hour * * *"
  [fetch-policies-job]="0 $fetch_policies_hour * * *"
+ [lakes-job]="0 $lakes_hour * * *"
 )
 
 # # ---------- Artifact Registry Auth ----------
@@ -186,7 +221,8 @@ for IMAGE in "${!IMAGES_ARGS[@]}"; do
     echo "Deploying $IMAGE as a Cloud Run **Job**..."
 
    MEMORY=${JOB_MEMORY[$IMAGE]:-512Mi}
-   TASK_TIMEOUT=${TASK_TIMEOUTS[$IMAGE]:-600}
+   TASK_TIMEOUT=${JOB_TIMEOUTS[$IMAGE]:-600}
+   CPU=${JOB_CPU[$IMAGE]:-1}
 
     try gcloud run jobs deploy "$IMAGE" \
       --image="$FULL_IMAGE" \
@@ -196,7 +232,8 @@ for IMAGE in "${!IMAGES_ARGS[@]}"; do
       --args="$ARG_LIST" \
       --max-retries=3 \
       --memory="$MEMORY" \
-      --cpu=1 \
+      --cpu="$CPU" \
+      --task-timeout="${TASK_TIMEOUT}s" \
       --service-account $SERVICE_ACCOUNT || DEPLOYMENT_FAILED=true
 
     echo "Granting Cloud Scheduler permission to invoke $IMAGE"
@@ -209,6 +246,14 @@ for IMAGE in "${!IMAGES_ARGS[@]}"; do
         SCHEDULE="${JOB_SCHEDULES[$IMAGE]}"
         echo "Cloud Scheduler for $IMAGE → $SCHEDULE"
 
+        # Check if scheduler exists and delete if found
+        if gcloud scheduler jobs describe "$IMAGE-schedule" --location="$REGION" >/dev/null 2>&1; then
+            echo "Deleted older scheduler: $IMAGE-schedule"
+            gcloud scheduler jobs delete "$IMAGE-schedule" \
+                --location="$REGION" \
+                --quiet >/dev/null 2>&1
+        fi
+    
         try gcloud scheduler jobs create http "$IMAGE-schedule" \
         --schedule="$SCHEDULE" \
         --uri="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/$IMAGE:run" \
@@ -217,7 +262,7 @@ for IMAGE in "${!IMAGES_ARGS[@]}"; do
         --location="$REGION" \
         --message-body="{}" \
         --time-zone="UTC" \
-        --attempt-deadline="300s" || echo "Scheduler may already exist, skipping"
+        --attempt-deadline="300s" || DEPLOYMENT_FAILED=true
     fi
   else
     echo "Deploying $IMAGE as a Cloud Run **Service**..."
@@ -287,6 +332,8 @@ if [[ ${#FAILED_ACTIONS[@]} -eq 0 ]]; then
  echo "   Enable Data Access Logs via the Google Cloud Console:"
  echo "   - Go to the Audit Logs page in the Google Cloud Console."
  echo "   - Locate 'Data Catalog' in the Service column of the Data Access audit logs configuration table."
+ echo "   - **Important**: Make sure you are at the ORGANIZATION level (not project level)."
+ echo "   - Select your organization from the project/organization picker at the top."
  echo "   - Click on 'Data Catalog' to open the configuration panel."
  echo "   - In the 'Log Types' tab, select the Data Access audit log types you want to enable:"
  echo "     - DATA_READ"
@@ -300,6 +347,9 @@ if [[ ${#FAILED_ACTIONS[@]} -eq 0 ]]; then
  echo "     - DATA_WRITE"
  echo "   - Click 'Done'."
  echo "   - Click 'Save'."
+ echo ""
+ echo "   Note: Organization-level audit logs ensure comprehensive coverage across all projects"
+ echo "   and prevent the need to configure audit logs individually for each project."
  echo ""
 else
  echo "🙀 The following operations failed:"

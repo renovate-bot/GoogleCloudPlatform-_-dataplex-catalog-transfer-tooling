@@ -61,6 +61,16 @@ class ResourceManagerApiAdapter:
         ]
 
     @cache
+    def get_project_id(self, project_number: str) -> str:
+        """
+        Retrieves the project id for a given project number.
+        """
+        project_name = f"projects/{project_number}"
+        project = self._project_client.get_project(name=project_name)
+
+        return project.project_id
+
+    @cache
     def get_organization_number(self, project_id: str) -> str:
         """
         Retrieves the organization number for a given project ID.

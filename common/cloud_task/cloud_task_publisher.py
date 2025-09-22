@@ -253,6 +253,30 @@ class CloudTaskPublisher(object):
         except NotFound:
             return False
 
+    def ensure_correct_rps(
+        self,
+        max_rps: int,
+        project: str = None,
+        location: str = None,
+        queue_name: str = None,
+    ) -> None:
+        """
+        Ensures that the queue has the correct maximum
+        requests per second (max_rps).
+        If the current max_rps does not match the desired value,
+        the queue is updated.
+        """
+        project = project or self.project
+        location = location or self.location
+        queue_name = queue_name or self.queue_name
+
+        queue_fqn = self.get_queue_fqn(project, location, queue_name)
+        queue = self._cloud_task_client.get_queue(name=queue_fqn)
+        cur_rps = queue.rate_limits.max_dispatches_per_second
+
+        if cur_rps != max_rps:
+            self.update_queue(max_rps=max_rps)
+
     def _form_service_url(
         self, service_name: str, project: str, location: str
     ) -> str:

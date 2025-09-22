@@ -24,6 +24,7 @@ Classes:
   and retrieving partitions.
 """
 
+import re
 import time
 from datetime import date
 from typing import Any
@@ -340,7 +341,7 @@ class BigQueryAdapter:
         self,
         scope: dict,
         select_managing_systems: list,
-        resource_managing_system: str = None
+        resource_managing_system: str = None,
     ) -> tuple[list["EntryGroup"], date]:
         """
 
@@ -434,7 +435,7 @@ class BigQueryAdapter:
         self,
         scope: dict,
         select_managing_systems: list,
-        resource_managing_system: str = None
+        resource_managing_system: str = None,
     ) -> tuple[list["TagTemplate"], str]:
         """
         Fetch tag templates matching scope criteria.
@@ -718,3 +719,44 @@ class BigQueryAdapter:
         """
         dataset_ref = self._get_dataset_ref()
         self._client.delete_dataset(dataset_ref, True)
+
+    @classmethod
+    def parse_bigquery_table_path(cls, data_path: str) -> dict:
+        """
+        Parses a BigQuery table path and extracts projectId,
+        datasetId, and tableId.
+        """
+        bigquery_table_pattern = (
+            r"projects\/(?P<projectId>[a-z0-9\-]+)/"
+            r"datasets/(?P<datasetId>[a-zA-Z0-9_]+)/"
+            r"tables/(?P<tableId>[a-zA-Z0-9_]+)"
+        )
+        match = re.match(bigquery_table_pattern, data_path)
+
+        if match is None:
+            return {}
+        return match.groupdict()
+
+    @classmethod
+    def get_dataset_location(cls, project_id: str, dataset_id: str) -> str:
+        """
+        Retrieves the location of a BigQuery dataset.
+        """
+        dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
+        location = bigquery.Client().get_dataset(dataset_ref).location.lower()
+
+        return location
+
+    @classmethod
+    def parse_dataset_path(cls, path: str) -> tuple[str, str]:
+        """
+        Parses a BigQuery dataset resource path to extract
+        project and dataset name.
+        """
+        pattern = r"projects/(?P<project>[^/]+)/" r"datasets/(?P<name>[^/]+)"
+        match = re.match(pattern, path)
+
+        if match is None:
+            raise ValueError(f"Incorrect dataset name: {path}")
+
+        return match.group("project"), match.group("name")

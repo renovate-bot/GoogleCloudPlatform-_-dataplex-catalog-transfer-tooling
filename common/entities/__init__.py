@@ -34,4 +34,5 @@ from common.entities.request_models import (
     ResourceData,
     ExtendedResourceData,
     ConvertPrivateTagTemplatesTaskData,
+    DataplexEntries
 )

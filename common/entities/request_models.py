@@ -103,3 +103,14 @@ class ConvertPrivateTagTemplatesTaskData(ResourceData):
     """
     Model for fetching policies by resource type and creation date.
     """
+
+
+class DataplexEntries(BaseModel):
+    """
+    Model for lake assets.
+    """
+
+    aspect_type_project: str
+    type: str
+    fqn: str
+    data_path: str
